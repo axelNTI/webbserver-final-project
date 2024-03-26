@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logga in</title>
+     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-iYQeCzEYFbKjA/T2uDLTpkwGzCiq6soy8tYaI1GyVh/UjpbCx/TYkiZhlZB6+fzT" crossorigin="anonymous">
+</head>
+<body>
+    
+    <nav>
+        <h4>Min fina sida</h4>
+        <ul>
+            <li><a href="/">Hem</a></li>
+            <li><a href="/login">Logga in</a></li>
+            <li><a href="/register">Registrera</a></li>
+        </ul>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="card" style="width: 18rem;">            
+            <div class="card-header">Logga in</div>    
+            <div class="card-body">
+                <form>
+                    <div class="mb-3">
+                        <label for="name-lgn" class="form-label">Namn eller epostaddress:</label>
+                        <input type="text" class="form-control" id="name-lgn" name="name">                        
+                    </div>                    
+                    <div class="mb-3">
+                        <label for="password-lgn" class="form-label">Lösenord:</label>
+                        <input type="password" class="form-control" id="password-lgn" name="password">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Logga in</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {{!-- Visar upp eventuella meddelanden --}}
+    {{#if message }}
+    <h4 class="alert alert-danger mt-4">{{message}}</h4>
+    {{else}}
+    <h4 class="alert alert-danger mt-4" style="display: none;"></h4>
+    {{/if}}
+    <script>
+        // Här skapar vi en eventlistener som lyssnar på när formuläret skickas.
+        document.addEventListener("DOMContentLoaded", function () {
+                document.querySelector("form").addEventListener("submit", function (event) {
+                    event.preventDefault();
+                    
+                    // Här hämtar vi användarnamn och lösenord från formuläret.
+                    let name = document.querySelector("#name-lgn").value;
+                    let password = document.querySelector("#password-lgn").value;
+
+                    const messageContent = document.querySelector(".alert");
+
+                    // Här kollar vi så att användaren har fyllt i alla fält.
+                    if (!name || !password) {
+                        messageContent.textContent = "Fyll i alla fält";
+                        messageContent.style.display = "block";
+                        return;
+                    }
+
+                    // Här skickar vi användarnamn och lösenord till servern.
+                    fetch("/auth/login", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            name: name,
+                            password: password,
+                        }),
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.message) {
+                                // Om servern skickar tillbaka ett meddelande visas det upp.
+                                messageContent.textContent = data.message;
+                                messageContent.style.display = "block";
+                            }
+                        })
+                        .catch(error => {
+                            console.error(error);
+                        });
+                });
+            });
+    </script>
+</body>
+</html>
