@@ -11,6 +11,12 @@ const app = express();
 app.set("view engine", "hbs");
 dotenv.config({ path: "../.env" });
 
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+
+client.once(Events.clientReady, (readyClient) => {
+  console.log(`Logged in as ${readyClient.user.tag}`);
+});
+
 const emailRegex =
   /^(([^<>()[\]\.,;:\s@\"]+(\.[^<>()[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i;
 
@@ -42,7 +48,7 @@ db.connect((err) => {
   }
 });
 
-app.post("/send-verification-email", (req, res) => {
+app.post("/verify_account", (req, res) => {
   const email = req.body.email;
   const token = crypto.randomBytes(32).toString("hex");
 
@@ -71,12 +77,15 @@ app.get("/", (req, res) => {
 });
 
 app.get("/register", (req, res) => {
-  ö;
   res.render("register");
 });
 
 app.get("/login", (req, res) => {
   res.render("login");
+});
+
+app.get("/delete", (req, res) => {
+  res.render("delete");
 });
 
 app.post("/auth/register", (req, res) => {
@@ -177,6 +186,8 @@ app.post("/auth/login", (req, res) => {
     }
   );
 });
+
+client.login(process.env.DISCORD_TOKEN);
 
 app.listen(4000, () => {
   console.log("Servern körs, besök http://localhost:4000");
