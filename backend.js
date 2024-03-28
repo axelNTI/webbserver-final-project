@@ -6,12 +6,15 @@ const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const { Client, Events, GatewayIntentBits } = require("discord.js");
 const { SpotifyApi } = require("@spotify/web-api-ts-sdk");
+const { read } = require("fs");
 
 const app = express();
 app.set("view engine", "hbs");
 dotenv.config({ path: "../.env" });
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+  intents: 8,
+});
 
 const emailRegex =
   /^(([^<>()[\]\.,;:\s@\"]+(\.[^<>()[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i;
@@ -47,9 +50,9 @@ const transporter = nodemailer.createTransport({
 
 db.connect((err) => {
   if (err) {
-    console.error(err);
+    console.error(`%c${err}`, "color: red;");
   } else {
-    console.log("Ansluten till MySQL");
+    console.log("%cAnsluten till MySQL", "color: green;");
   }
 });
 
@@ -69,7 +72,7 @@ app.post("/auth/register", (req, res) => {
   const { name, email, password, password_confirm } = req.body;
   db.query("SELECT name, email, email_verified FROM users", (err, result) => {
     if (err) {
-      console.error(err);
+      console.error(`%c${err}`, "color: red;");
       return res.status(500).json({ message: "Server error" });
     }
     const name_array = result.map((user) => user.name);
@@ -89,7 +92,7 @@ app.post("/auth/register", (req, res) => {
       const token = crypto.randomBytes(32).toString("hex");
       transporter.sendMail(mailOptions(email, token), (err, info) => {
         if (err) {
-          console.error(err);
+          console.error(`%c${err}`, "color: red;");
           return res.status(500).send("Server error");
         }
         console.log("Email sent: " + info.response);
@@ -98,16 +101,16 @@ app.post("/auth/register", (req, res) => {
           [token, email],
           (err, result) => {
             if (err) {
-              console.error(err);
+              console.error(`%c${err}`, "color: red;");
               return res.status(500).json({ message: "Server error" });
             }
             console.log(`User token updated: ${result}`);
-            return res.status(400).json({
-              message:
-                "Epostadressen är upptagen, bekräfta den eller radera kontot om du inte registrerade det",
-            });
           }
         );
+      });
+      return res.status(400).json({
+        message:
+          "Epostadressen är upptagen, bekräfta den eller radera kontot om du inte registrerade det",
       });
     }
     if (password !== password_confirm) {
@@ -129,12 +132,12 @@ app.post("/auth/register", (req, res) => {
     }
     bcrypt.genSalt(10, (err, salt) => {
       if (err) {
-        console.error(err);
+        console.error(`%c${err}`, "color: red;");
         return res.status(500).json({ message: "Server error" });
       }
       bcrypt.hash(password, salt, (err, hashedPassword) => {
         if (err) {
-          console.error(err);
+          console.error(`%c${err}`, "color: red;");
           return res.status(500).json({ message: "Server error" });
         }
         const token = crypto.randomBytes(32).toString("hex");
@@ -149,14 +152,14 @@ app.post("/auth/register", (req, res) => {
           },
           (err, result) => {
             if (err) {
-              console.error(err);
+              console.error(`%c${err}`, "color: red;");
               return res.status(500).json({ message: "Server error" });
             }
             console.log(`User ${name} registered: ${result}`);
 
             transporter.sendMail(mailOptions(email, token), (err, info) => {
               if (err) {
-                console.error(err);
+                console.error(`%c${err}`, "color: red;");
                 return res.status(500).send("Server error");
               }
               console.log("Email sent: " + info.response);
@@ -182,7 +185,7 @@ app.get("/verify", (req, res) => {
     [token],
     (err, result) => {
       if (err) {
-        console.error(err);
+        console.error(`%c${err}`, "color: red;");
         return res.status(500).json({ message: "Server error" });
       }
       console.log(`User email verified: ${result}`);
@@ -198,7 +201,7 @@ app.get("/delete", (req, res) => {
   }
   db.query("DELETE FROM users WHERE token = ?", [token], (err, result) => {
     if (err) {
-      console.error(err);
+      console.error(`%c${err}`, "color: red;");
       return res.status(500).json({ message: "Server error" });
     }
     console.log(`User deleted: ${result}`);
@@ -216,7 +219,7 @@ app.post("/auth/login", (req, res) => {
     [name],
     async (err, result) => {
       if (err) {
-        console.error(err);
+        console.error(`%c${err}`, "color: red;");
         return res.status(500).json({ message: "Server error" });
       }
       const name_array_login = result.map((user) => user.name);
@@ -246,10 +249,19 @@ app.post("/auth/login", (req, res) => {
 
 client.login(process.env.DISCORD_TOKEN);
 
-client.once(Events.clientReady, (readyClient) => {
-  console.log(`Logged in as ${readyClient.user.tag}`);
+client.on(Events.ClientReady, (readyClient) => {
+  console.log(
+    `%cBotten är online som ${readyClient.user.tag}`,
+    "color: green;"
+  );
+});
+
+client.on(Events.MessageCreate, (message) => {
+  if (message.content === "!ping") {
+    message.reply("Pong!");
+  }
 });
 
 app.listen(4000, () => {
-  console.log("Servern körs, besök http://localhost:4000");
+  console.log("%cServern körs, besök http://localhost:4000", "color: green;");
 });
