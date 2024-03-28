@@ -13,14 +13,19 @@ dotenv.config({ path: "../.env" });
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-client.once(Events.clientReady, (readyClient) => {
-  console.log(`Logged in as ${readyClient.user.tag}`);
-});
-
 const emailRegex =
   /^(([^<>()[\]\.,;:\s@\"]+(\.[^<>()[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i;
 
 const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])[0-9a-zA-Z]{8,35}$/;
+
+function mailOptions(email, token) {
+  return {
+    from: process.env.EMAIL,
+    to: email,
+    subject: "Confirm your email address",
+    text: `Click on this link to verify your email: http://localhost:4000/verify?token=${token}\n\nIf you did not register, click on this link to delete the account: http://localhost:4000/delete?token=${token}`,
+  };
+}
 
 const db = mysql.createConnection({
   host: process.env.DATABASE_HOST,
@@ -35,8 +40,8 @@ app.use(express.json());
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "your-email-username", // Skriv in din epostadress här
-    pass: "your-email-password", // Skriv in ditt epostlösenord här
+    user: process.env.EMAIL,
+    pass: process.env.PASSWORD,
   },
 });
 
@@ -46,30 +51,6 @@ db.connect((err) => {
   } else {
     console.log("Ansluten till MySQL");
   }
-});
-
-app.post("/verify_account", (req, res) => {
-  const email = req.body.email;
-  const token = crypto.randomBytes(32).toString("hex");
-
-  // Save the token and email in your database for later verification
-
-  const mailOptions = {
-    from: "your-email",
-    to: email,
-    subject: "Confirm your email address",
-    text: `Click on this link to verify your email: http://yourwebsite.com/verify?token=${token}`,
-  };
-
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (err) {
-      console.error(err);
-      res.status(500).send("Error sending verification email.");
-    } else {
-      console.log("Email sent: " + info.response);
-      res.send("Verification email sent.");
-    }
-  });
 });
 
 app.get("/", (req, res) => {
@@ -84,26 +65,50 @@ app.get("/login", (req, res) => {
   res.render("login");
 });
 
-app.get("/delete", (req, res) => {
-  res.render("delete");
-});
-
 app.post("/auth/register", (req, res) => {
   const { name, email, password, password_confirm } = req.body;
-  db.query("SELECT name, email FROM users", (err, result) => {
+  db.query("SELECT name, email, email_verified FROM users", (err, result) => {
     if (err) {
       console.error(err);
       return res.status(500).json({ message: "Server error" });
     }
     const name_array = result.map((user) => user.name);
     const email_array = result.map((user) => user.email);
+    const email_verified_array = result.map((user) => user.email_verified);
     if (!name || !email || !password || !password_confirm) {
       return res.status(400).json({ message: "Fyll i alla fält" });
     }
-    if (name_array.includes(name) || email_array.includes(email)) {
-      return res
-        .status(400)
-        .json({ message: "Användarnamn eller epostadress upptagen" });
+    if (name_array.includes(name)) {
+      return res.status(400).json({ message: "Användarnamnet är upptaget" });
+    }
+    if (email_array.includes(email)) {
+      email_index = email_array.indexOf(email);
+      if (email_verified_array[email_index] === 1) {
+        return res.status(400).json({ message: "Epostadressen är upptagen" });
+      }
+      const token = crypto.randomBytes(32).toString("hex");
+      transporter.sendMail(mailOptions(email, token), (err, info) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).send("Server error");
+        }
+        console.log("Email sent: " + info.response);
+        db.query(
+          "UPDATE users SET token = ? WHERE email = ?",
+          [token, email],
+          (err, result) => {
+            if (err) {
+              console.error(err);
+              return res.status(500).json({ message: "Server error" });
+            }
+            console.log(`User token updated: ${result}`);
+            return res.status(400).json({
+              message:
+                "Epostadressen är upptagen, bekräfta den eller radera kontot om du inte registrerade det",
+            });
+          }
+        );
+      });
     }
     if (password !== password_confirm) {
       return res.status(400).json({ message: "Lösenorden matchar inte" });
@@ -132,20 +137,72 @@ app.post("/auth/register", (req, res) => {
           console.error(err);
           return res.status(500).json({ message: "Server error" });
         }
+        const token = crypto.randomBytes(32).toString("hex");
         db.query(
           "INSERT INTO users SET?",
-          { name: name, email: email, password: hashedPassword },
+          {
+            name: name,
+            email: email,
+            password: hashedPassword,
+            email_verified: 0,
+            token: token,
+          },
           (err, result) => {
             if (err) {
               console.error(err);
               return res.status(500).json({ message: "Server error" });
-            } else {
-              return res.status(200).json({ message: "Användare registrerad" });
             }
+            console.log(`User ${name} registered: ${result}`);
+
+            transporter.sendMail(mailOptions(email, token), (err, info) => {
+              if (err) {
+                console.error(err);
+                return res.status(500).send("Server error");
+              }
+              console.log("Email sent: " + info.response);
+              return res.status(200).json({
+                message:
+                  "Användare registrerad, bekräfta din epostadress för att bevara ditt konto",
+              });
+            });
           }
         );
       });
     });
+  });
+});
+
+app.get("/verify", (req, res) => {
+  const { token } = req.query;
+  if (!token) {
+    return res.status(500).json({ message: "Token saknas" });
+  }
+  db.query(
+    "UPDATE users SET email_verified = 1 WHERE token = ?",
+    [token],
+    (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ message: "Server error" });
+      }
+      console.log(`User email verified: ${result}`);
+      return res.status(200).json({ message: "Email verifierad" });
+    }
+  );
+});
+
+app.get("/delete", (req, res) => {
+  const { token } = req.query;
+  if (!token) {
+    return res.status(500).json({ message: "Token saknas" });
+  }
+  db.query("DELETE FROM users WHERE token = ?", [token], (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Server error" });
+    }
+    console.log(`User deleted: ${result}`);
+    return res.status(200).json({ message: "Konto raderat" });
   });
 });
 
@@ -188,6 +245,10 @@ app.post("/auth/login", (req, res) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
+client.once(Events.clientReady, (readyClient) => {
+  console.log(`Logged in as ${readyClient.user.tag}`);
+});
 
 app.listen(4000, () => {
   console.log("Servern körs, besök http://localhost:4000");
