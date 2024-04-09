@@ -7,6 +7,14 @@ const nodemailer = require("nodemailer");
 const { Client, Events, GatewayIntentBits } = require("discord.js");
 const { SpotifyApi } = require("@spotify/web-api-ts-sdk");
 const { read } = require("fs");
+const session = require("express-session");
+
+const css = {
+  error: "color: red;",
+  success: "color: green;",
+  warning: "color: orange;",
+  information: "color: blue;",
+};
 
 const app = express();
 app.set("view engine", "hbs");
@@ -20,15 +28,6 @@ const emailRegex =
   /^(([^<>()[\]\.,;:\s@\"]+(\.[^<>()[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i;
 
 const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])[0-9a-zA-Z]{8,35}$/;
-
-function mailOptions(email, token) {
-  return {
-    from: process.env.EMAIL,
-    to: email,
-    subject: "Confirm your email address",
-    text: `Click on this link to verify your email: http://localhost:4000/verify?token=${token}\n\nIf you did not register, click on this link to delete the account: http://localhost:4000/delete?token=${token}`,
-  };
-}
 
 const db = mysql.createConnection({
   host: process.env.DATABASE_HOST,
@@ -50,9 +49,9 @@ const transporter = nodemailer.createTransport({
 
 db.connect((err) => {
   if (err) {
-    console.error(`%c${err}`, "color: red;");
+    console.error(`%c${err}`, css.error);
   } else {
-    console.log("%cAnsluten till MySQL", "color: green;");
+    console.log("%cAnsluten till MySQL", css.success);
   }
 });
 
@@ -72,7 +71,7 @@ app.post("/auth/register", (req, res) => {
   const { name, email, password, password_confirm } = req.body;
   db.query("SELECT name, email, email_verified FROM users", (err, result) => {
     if (err) {
-      console.error(`%c${err}`, "color: red;");
+      console.error(`%c${err}`, css.error);
       return res.status(500).json({ message: "Server error" });
     }
     const name_array = result.map((user) => user.name);
@@ -90,21 +89,27 @@ app.post("/auth/register", (req, res) => {
         return res.status(400).json({ message: "Epostadressen är upptagen" });
       }
       const token = crypto.randomBytes(32).toString("hex");
-      transporter.sendMail(mailOptions(email, token), (err, info) => {
+      const mailOptions = {
+        from: process.env.EMAIL,
+        to: email,
+        subject: "Bekräftelse av epostadress",
+        text: `Klicka på länken för att bekräfta din epostadress: http://localhost:4000/verify?token=${token}`,
+      };
+      transporter.sendMail(mailOptions, (err, info) => {
         if (err) {
-          console.error(`%c${err}`, "color: red;");
+          console.error(`%c${err}`, css.error);
           return res.status(500).send("Server error");
         }
-        console.log("Email sent: " + info.response);
+        console.log(`%cEmail sent: ${info.response}`, css.information);
         db.query(
           "UPDATE users SET token = ? WHERE email = ?",
           [token, email],
           (err, result) => {
             if (err) {
-              console.error(`%c${err}`, "color: red;");
+              console.error(`%c${err}`, css.error);
               return res.status(500).json({ message: "Server error" });
             }
-            console.log(`User token updated: ${result}`);
+            console.log(`%cUser token updated: ${result}`, css.success);
           }
         );
       });
@@ -132,12 +137,12 @@ app.post("/auth/register", (req, res) => {
     }
     bcrypt.genSalt(10, (err, salt) => {
       if (err) {
-        console.error(`%c${err}`, "color: red;");
+        console.error(`%c${err}`, css.error);
         return res.status(500).json({ message: "Server error" });
       }
       bcrypt.hash(password, salt, (err, hashedPassword) => {
         if (err) {
-          console.error(`%c${err}`, "color: red;");
+          console.error(`%c${err}`, css.error);
           return res.status(500).json({ message: "Server error" });
         }
         const token = crypto.randomBytes(32).toString("hex");
@@ -152,17 +157,25 @@ app.post("/auth/register", (req, res) => {
           },
           (err, result) => {
             if (err) {
-              console.error(`%c${err}`, "color: red;");
+              console.error(`%c${err}`, css.error);
               return res.status(500).json({ message: "Server error" });
             }
-            console.log(`User ${name} registered: ${result}`);
-
-            transporter.sendMail(mailOptions(email, token), (err, info) => {
+            console.log(
+              `%cUser ${name} registered: ${result}`,
+              css.information
+            );
+            const mailOptions = {
+              from: process.env.EMAIL,
+              to: email,
+              subject: "Bekräftelse av epostadress",
+              text: `Klicka på länken för att bekräfta din epostadress: http://localhost:4000/verify?token=${token}`,
+            };
+            transporter.sendMail(mailOptions, (err, info) => {
               if (err) {
-                console.error(`%c${err}`, "color: red;");
+                console.error(`%c${err}`, css.error);
                 return res.status(500).send("Server error");
               }
-              console.log("Email sent: " + info.response);
+              console.log("%cEmail sent: " + info.response, css.information);
               return res.status(200).json({
                 message:
                   "Användare registrerad, bekräfta din epostadress för att bevara ditt konto",
@@ -185,10 +198,10 @@ app.get("/verify", (req, res) => {
     [token],
     (err, result) => {
       if (err) {
-        console.error(`%c${err}`, "color: red;");
+        console.error(`%c${err}`, css.error);
         return res.status(500).json({ message: "Server error" });
       }
-      console.log(`User email verified: ${result}`);
+      console.log(`%cUser email verified: ${result}`, css.information);
       return res.status(200).json({ message: "Email verifierad" });
     }
   );
@@ -201,10 +214,10 @@ app.get("/delete", (req, res) => {
   }
   db.query("DELETE FROM users WHERE token = ?", [token], (err, result) => {
     if (err) {
-      console.error(`%c${err}`, "color: red;");
+      console.error(`%c${err}`, css.error);
       return res.status(500).json({ message: "Server error" });
     }
-    console.log(`User deleted: ${result}`);
+    console.log(`%cUser deleted: ${result}`, css.information);
     return res.status(200).json({ message: "Konto raderat" });
   });
 });
@@ -219,7 +232,7 @@ app.post("/auth/login", (req, res) => {
     [name],
     async (err, result) => {
       if (err) {
-        console.error(`%c${err}`, "color: red;");
+        console.error(`%c${err}`, css.error);
         return res.status(500).json({ message: "Server error" });
       }
       const name_array_login = result.map((user) => user.name);
@@ -247,21 +260,76 @@ app.post("/auth/login", (req, res) => {
   );
 });
 
+app.post("/auth/logout", (req, res) => {
+  return res.status(200).json({ message: "Utloggad" });
+});
+
+app.post("/auth/forgot", (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ message: "Fyll i epostadress" });
+  }
+
+  db.query("SELECT email, email_verified FROM users", (err, result) => {
+    if (err) {
+      console.error(`%c${err}`, css.error);
+      return res.status(500).json({ message: "Server error" });
+    }
+    const email_array_forgot = result.map((user) => user.email);
+    const email_verified_array_forgot = result.map(
+      (user) => user.email_verified
+    );
+    if (!email_array_forgot.includes(email)) {
+      return res.status(400).json({ message: "Epostadressen finns inte" });
+    }
+    const email_index = email_array_forgot.indexOf(email);
+    if (email_verified_array_forgot[email_index] === 0) {
+      return res
+        .status(400)
+        .json({ message: "Epostadressen är inte verifierad" });
+    }
+    const token = crypto.randomBytes(32).toString("hex");
+    const mailOptions = {
+      from: process.env.EMAIL,
+      to: email,
+      subject: "Återställning av lösenord",
+      text: `Klicka på länken för att återställa ditt lösenord: http://localhost:4000/reset?token=${token}`,
+    };
+    transporter.sendMail(mailOptions, (err, info) => {
+      if (err) {
+        console.error(`%c${err}`, css.error);
+        return res.status(500).send("Server error");
+      }
+      console.log(`%cEmail sent: ${info.response}`, css.information);
+      db.query(
+        "UPDATE users SET token = ? WHERE email = ?",
+        [token, email],
+        (err, result) => {
+          if (err) {
+            console.error(`%c${err}`, "color: red;");
+            return res.status(500).json({ message: "Server error" });
+          }
+          console.log(`%cUser token updated: ${result}`, css.information);
+        }
+      );
+    });
+    return res.status(200).json({ message: "Ett mail har skickats" });
+  });
+});
+
 client.login(process.env.DISCORD_TOKEN);
 
 client.on(Events.ClientReady, (readyClient) => {
-  console.log(
-    `%cBotten är online som ${readyClient.user.tag}`,
-    "color: green;"
-  );
+  console.log(`%cBotten är online som ${readyClient.user.tag}`, css.success);
 });
 
 client.on(Events.MessageCreate, (message) => {
-  if (message.content === "!ping") {
-    message.reply("Pong!");
-  }
+  console.log("%cContent not implemented", css.warning);
+  message.reply("Content not implemented");
 });
 
-app.listen(4000, () => {
-  console.log("%cServern körs, besök http://localhost:4000", "color: green;");
+const port = 4000;
+
+app.listen(port, () => {
+  console.log(`%cServern körs, besök http://localhost:${port}`, css.success);
 });
