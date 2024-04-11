@@ -8,6 +8,8 @@ const { Client, Events, GatewayIntentBits } = require("discord.js");
 const { SpotifyApi } = require("@spotify/web-api-ts-sdk");
 const { read } = require("fs");
 const session = require("express-session");
+const { request } = require("undici");
+const Handlebars = require("handlebars");
 
 const css = {
   error: "color: red;",
@@ -29,6 +31,10 @@ const emailRegex =
 
 const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])[0-9a-zA-Z]{8,35}$/;
 
+// https://regex101.com/library/qE9gR7
+const sqlInjectionRegex =
+  /(\s*([\0\b\'\"\n\r\t\%\_\\]*\s*(((select\s*.+\s*from\s*.+)|(insert\s*.+\s*into\s*.+)|(update\s*.+\s*set\s*.+)|(delete\s*.+\s*from\s*.+)|(drop\s*.+)|(truncate\s*.+)|(alter\s*.+)|(exec\s*.+)|(\s*(all|any|not|and|between|in|like|or|some|contains|containsall|containskey)\s*.+[\=\>\<=\!\~]+.+)|(let\s+.+[\=]\s*.*)|(begin\s*.*\s*end)|(\s*[\/\*]+\s*.*\s*[\*\/]+)|(\s*(\-\-)\s*.*\s+)|(\s*(contains|containsall|containskey)\s+.*)))(\s*[\;]\s*)*)+)/i;
+
 const db = mysql.createConnection({
   host: process.env.DATABASE_HOST,
   user: process.env.DATABASE_USER,
@@ -40,7 +46,7 @@ app.use(express.urlencoded({ extended: "false" }));
 app.use(express.json());
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  service: process.env.EMAIL_SERVICE,
   auth: {
     user: process.env.EMAIL,
     pass: process.env.PASSWORD,
@@ -57,6 +63,7 @@ db.connect((err) => {
 
 app.get("/", (req, res) => {
   res.render("index");
+  res.render("script.js");
 });
 
 app.get("/register", (req, res) => {
@@ -66,6 +73,10 @@ app.get("/register", (req, res) => {
 app.get("/login", (req, res) => {
   res.render("login");
 });
+
+// app.get("/discordAuth", (req, res) => {
+//   res.render("discordAuth");
+// });
 
 app.post("/auth/register", (req, res) => {
   const { name, email, password, password_confirm } = req.body;
@@ -77,6 +88,9 @@ app.post("/auth/register", (req, res) => {
     const name_array = result.map((user) => user.name);
     const email_array = result.map((user) => user.email);
     const email_verified_array = result.map((user) => user.email_verified);
+    if (sqlInjectionRegex.test(name) || sqlInjectionRegex.test(email)) {
+      return res.status(400).json({ message: "Ogiltiga tecken" });
+    }
     if (!name || !email || !password || !password_confirm) {
       return res.status(400).json({ message: "Fyll i alla fält" });
     }
@@ -222,6 +236,10 @@ app.get("/delete", (req, res) => {
   });
 });
 
+app.get("/auth", (req, res) => {
+  res.render("auth");
+});
+
 app.post("/auth/login", (req, res) => {
   const { name, password } = req.body;
   if (!name || !password) {
@@ -326,6 +344,42 @@ client.on(Events.ClientReady, (readyClient) => {
 client.on(Events.MessageCreate, (message) => {
   console.log("%cContent not implemented", css.warning);
   message.reply("Content not implemented");
+});
+
+// Fixa
+app.get("/discordAuth", async ({ query }, response) => {
+  const { code } = query;
+  if (code) {
+    try {
+      const tokenResponseData = await request(
+        "https://discord.com/api/oauth2/token",
+        {
+          method: "POST",
+          body: new URLSearchParams({
+            client_id: process.env.DISCORD_CLIENT_ID,
+            client_secret: process.env.DISCORD_CLIENT_SECRET,
+            code,
+            grant_type: "authorization_code",
+            redirect_uri: `http://localhost:4000/discordAuth`,
+            scope: "identify",
+          }).toString(),
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+        }
+      );
+      const oauthData = await tokenResponseData.body.json();
+      const userResult = await request("https://discord.com/api/users/@me", {
+        headers: {
+          authorization: `${oauthData.token_type} ${oauthData.access_token}`,
+        },
+      });
+      console.log(await userResult.body.json());
+    } catch (error) {
+      console.error(`%c${error}`, css.error);
+    }
+  }
+  return res.render("index");
 });
 
 const port = 4000;
