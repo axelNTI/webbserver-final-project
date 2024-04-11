@@ -62,24 +62,19 @@ db.connect((err) => {
 });
 
 app.get("/", (req, res) => {
-  res.render("index");
+  res.render("index", req.query);
 });
 
 app.get("/register", (req, res) => {
-  res.render("register");
+  res.render("register", req.query);
 });
 
 app.get("/login", (req, res) => {
-  res.render("login");
+  res.render("login", req.query);
 });
 
 app.get("/discordAuth", (req, res) => {
-  const { code } = req.query;
-  if (code) {
-    res.render("discordAuth", { code });
-  } else {
-    res.render("discordAuth");
-  }
+  res.render("discordAuth", req.query);
 });
 
 app.post("/auth/register", (req, res) => {
@@ -241,7 +236,7 @@ app.get("/delete", (req, res) => {
 });
 
 app.get("/auth", (req, res) => {
-  res.render("auth");
+  res.render("auth", req.query);
 });
 
 app.post("/auth/login", (req, res) => {
@@ -372,7 +367,7 @@ app.post("/auth/discord", async (req, res) => {
     `%cKopplat Discord-konto: ${displayname} (${username})`,
     css.information
   );
-
+  // return res.redirect("http://localhost:4000/");
   db.query("SELECT userID from users");
 });
 
