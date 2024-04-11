@@ -12,10 +12,10 @@ const { request } = require("undici");
 const Handlebars = require("handlebars");
 
 const css = {
-  error: "color: red;",
-  success: "color: green;",
-  warning: "color: orange;",
-  information: "color: blue;",
+  error: "color: #FF4422;",
+  success: "color: #00FF7F;",
+  warning: "color: #F9A900;",
+  information: "color: #1E90FF;",
 };
 
 const app = express();
@@ -63,7 +63,6 @@ db.connect((err) => {
 
 app.get("/", (req, res) => {
   res.render("index");
-  res.render("script.js");
 });
 
 app.get("/register", (req, res) => {
@@ -74,9 +73,14 @@ app.get("/login", (req, res) => {
   res.render("login");
 });
 
-// app.get("/discordAuth", (req, res) => {
-//   res.render("discordAuth");
-// });
+app.get("/discordAuth", (req, res) => {
+  const { code } = req.query;
+  if (code) {
+    res.render("discordAuth", { code });
+  } else {
+    res.render("discordAuth");
+  }
+});
 
 app.post("/auth/register", (req, res) => {
   const { name, email, password, password_confirm } = req.body;
@@ -335,6 +339,43 @@ app.post("/auth/forgot", (req, res) => {
   });
 });
 
+app.post("/auth/discord", async (req, res) => {
+  const { code } = req.body;
+  const tokenResponseData = await request(
+    "https://discord.com/api/oauth2/token",
+    {
+      method: "POST",
+      body: new URLSearchParams({
+        client_id: process.env.DISCORD_CLIENT_ID,
+        client_secret: process.env.DISCORD_CLIENT_SECRET,
+        code,
+        grant_type: "authorization_code",
+        redirect_uri: `http://localhost:4000/discordAuth`,
+        scope: "identify",
+      }).toString(),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    }
+  );
+  const oauthData = await tokenResponseData.body.json();
+  const userResult = await request("https://discord.com/api/users/@me", {
+    headers: {
+      authorization: `${oauthData.token_type} ${oauthData.access_token}`,
+    },
+  });
+  const discordUser = await userResult.body.json();
+
+  username = discordUser.username;
+  displayname = discordUser.global_name;
+  console.log(
+    `%cKopplat Discord-konto: ${displayname} (${username})`,
+    css.information
+  );
+
+  db.query("SELECT userID from users");
+});
+
 client.login(process.env.DISCORD_TOKEN);
 
 client.on(Events.ClientReady, (readyClient) => {
@@ -344,42 +385,6 @@ client.on(Events.ClientReady, (readyClient) => {
 client.on(Events.MessageCreate, (message) => {
   console.log("%cContent not implemented", css.warning);
   message.reply("Content not implemented");
-});
-
-// Fixa
-app.get("/discordAuth", async ({ query }, response) => {
-  const { code } = query;
-  if (code) {
-    try {
-      const tokenResponseData = await request(
-        "https://discord.com/api/oauth2/token",
-        {
-          method: "POST",
-          body: new URLSearchParams({
-            client_id: process.env.DISCORD_CLIENT_ID,
-            client_secret: process.env.DISCORD_CLIENT_SECRET,
-            code,
-            grant_type: "authorization_code",
-            redirect_uri: `http://localhost:4000/discordAuth`,
-            scope: "identify",
-          }).toString(),
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-        }
-      );
-      const oauthData = await tokenResponseData.body.json();
-      const userResult = await request("https://discord.com/api/users/@me", {
-        headers: {
-          authorization: `${oauthData.token_type} ${oauthData.access_token}`,
-        },
-      });
-      console.log(await userResult.body.json());
-    } catch (error) {
-      console.error(`%c${error}`, css.error);
-    }
-  }
-  return res.render("index");
 });
 
 const port = 4000;
