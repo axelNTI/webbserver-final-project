@@ -23,8 +23,42 @@ app.set("view engine", "hbs");
 dotenv.config({ path: "../.env" });
 
 const client = new Client({
-  intents: 8,
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers,
+  ],
 });
+async function fetchAllMessages() {
+  const channel = client.channels.cache.get(
+    process.env.DISCORD_CHANNEL_CITAT_DEPARTEMENTET
+  );
+  let messages = [];
+
+  // Create message pointer
+  let message = null;
+
+  do {
+    // Fetch messages
+    const fetchedMessages = await channel.messages.fetch({
+      limit: 100,
+      before: message,
+    });
+
+    // If there are fetched messages, add them to the messages array
+    if (fetchedMessages.size > 0) {
+      messages = messages.concat(Array.from(fetchedMessages.values()));
+      // Update message pointer to the oldest message in the fetched batch
+      message = fetchedMessages.lastKey();
+    } else {
+      // If no more messages to fetch, exit loop
+      message = null;
+    }
+  } while (message);
+
+  return messages; // Print all messages
+}
 
 const emailRegex =
   /^(([^<>()[\]\.,;:\s@\"]+(\.[^<>()[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i;
@@ -367,7 +401,6 @@ app.post("/auth/discord", async (req, res) => {
     `%cKopplat Discord-konto: ${displayname} (${username})`,
     css.information
   );
-  // return res.redirect("http://localhost:4000/");
   db.query("SELECT userID from users");
 });
 
@@ -375,11 +408,29 @@ client.login(process.env.DISCORD_TOKEN);
 
 client.on(Events.ClientReady, (readyClient) => {
   console.log(`%cBotten är online som ${readyClient.user.tag}`, css.success);
+  fetchAllMessages().then((messages) => {
+    messages
+      .filter(
+        (message) =>
+          messages.indexOf(message) !== messages.length - 1 && !message.system
+      )
+      .reverse()
+      .forEach((message) => {
+        console.log(
+          `%c${message.author.tag}: ${message.content}`,
+          css.information
+        );
+      });
+    console.log("Messages fetched");
+  });
 });
 
 client.on(Events.MessageCreate, (message) => {
-  console.log("%cContent not implemented", css.warning);
-  message.reply("Content not implemented");
+  // Check channel ID
+  if (message.channelId !== process.env.DISCORD_CHANNEL_CITAT_DEPARTEMENTET) {
+    return;
+  }
+  console.log(`%cContent not implemented`, css.warning);
 });
 
 const port = 4000;
