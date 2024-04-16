@@ -4,7 +4,7 @@ const dotenv = require("dotenv");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
-const { Client, Events, GatewayIntentBits } = require("discord.js");
+const { Client, Events, GatewayIntentBits, quote } = require("discord.js");
 const { SpotifyApi } = require("@spotify/web-api-ts-sdk");
 const { read } = require("fs");
 const session = require("express-session");
@@ -73,8 +73,8 @@ const sqlInjectionRegex =
 // Regex for finding if string contains a new line
 const newLineRegex = /\n/;
 
-// Regex for finding the string between a dash and the first of the following: [a new line or a comma or the end of the string]
-const userRegex = /(?<=-).*?(?=\n|,|$)/;
+// Regex for finding the string between a dash and the first of the following: [a new line or a comma or the end of the string or the string "om"]
+const userRegex = /(?<=["”].*["”] -).*?(?=\n|,|om|till|$)/;
 
 const db = mysql.createConnection({
   host: process.env.DATABASE_HOST,
@@ -427,15 +427,31 @@ client.on(Events.ClientReady, (readyClient) => {
       )
       .reverse();
 
-    filteredMessages.forEach((message) => {
-      console.log(
-        `%c${message.author.globalName}: ${message.content}`,
-        css.information
-      );
-      message.content.split(newLineRegex).forEach((line) => {
-        console.log(`%c${line.match(userRegex).trimd()}`, css.information);
-      });
+    const incorrectMessages = [];
+
+    const quoted = filteredMessages.map((message) => {
+      try {
+        return message.content
+          .split(newLineRegex)
+          .map((line) => line.match(userRegex)[0].trim());
+      } catch (e) {
+        incorrectMessages.push(message);
+        console.log(`%c${e}`, css.error);
+      }
     });
+
+    const quotedCount = Object.fromEntries(
+      Object.entries(
+        quoted.reduce((acc, user) => {
+          acc[user] = (acc[user] || 0) + 1;
+          return acc;
+        }, {})
+      ).sort(([, a], [, b]) => b - a)
+    );
+
+    for (const [user, quotes] of Object.entries(quotedCount)) {
+      console.log(`%c${user}: ${quotes} quotes`, css.information);
+    }
 
     const messageCount = messages
       .map((message) => message.author)
@@ -443,9 +459,13 @@ client.on(Events.ClientReady, (readyClient) => {
         acc[user.displayName] = (acc[user.displayName] || 0) + 1;
         return acc;
       }, {});
-    for (const [user, messages] of Object.entries(messageCount)) {
-      console.log(`%c${user}: ${messages} messages`, css.information);
-    }
+    // for (const [user, messages] of Object.entries(messageCount)) {
+    //   console.log(`%c${user}: ${messages} messages`, css.information);
+    // }
+
+    incorrectMessages.forEach((message) => {
+      console.log(`%c${message.content}`, css.error);
+    });
   });
 });
 
