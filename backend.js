@@ -30,6 +30,7 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,
   ],
 });
+
 async function fetchAllMessages() {
   const channel = client.channels.cache.get(
     process.env.DISCORD_CHANNEL_CITAT_DEPARTEMENTET
@@ -68,6 +69,12 @@ const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])[0-9a-zA-Z]{8,35}$/;
 // https://regex101.com/library/qE9gR7
 const sqlInjectionRegex =
   /(\s*([\0\b\'\"\n\r\t\%\_\\]*\s*(((select\s*.+\s*from\s*.+)|(insert\s*.+\s*into\s*.+)|(update\s*.+\s*set\s*.+)|(delete\s*.+\s*from\s*.+)|(drop\s*.+)|(truncate\s*.+)|(alter\s*.+)|(exec\s*.+)|(\s*(all|any|not|and|between|in|like|or|some|contains|containsall|containskey)\s*.+[\=\>\<=\!\~]+.+)|(let\s+.+[\=]\s*.*)|(begin\s*.*\s*end)|(\s*[\/\*]+\s*.*\s*[\*\/]+)|(\s*(\-\-)\s*.*\s+)|(\s*(contains|containsall|containskey)\s+.*)))(\s*[\;]\s*)*)+)/i;
+
+// Regex for finding if string contains a new line
+const newLineRegex = /\n/;
+
+// Regex for finding the string between a dash and the first of the following: [a new line or a comma or the end of the string]
+const userRegex = /(?<=-).*?(?=\n|,|$)/;
 
 const db = mysql.createConnection({
   host: process.env.DATABASE_HOST,
@@ -109,6 +116,10 @@ app.get("/login", (req, res) => {
 
 app.get("/discordAuth", (req, res) => {
   res.render("discordAuth", req.query);
+});
+
+app.get("*", (req, res) => {
+  res.redirect("http://localhost:4000");
 });
 
 app.post("/auth/register", (req, res) => {
@@ -409,19 +420,32 @@ client.login(process.env.DISCORD_TOKEN);
 client.on(Events.ClientReady, (readyClient) => {
   console.log(`%cBotten är online som ${readyClient.user.tag}`, css.success);
   fetchAllMessages().then((messages) => {
-    messages
+    filteredMessages = messages
       .filter(
         (message) =>
           messages.indexOf(message) !== messages.length - 1 && !message.system
       )
-      .reverse()
-      .forEach((message) => {
-        console.log(
-          `%c${message.author.tag}: ${message.content}`,
-          css.information
-        );
+      .reverse();
+
+    filteredMessages.forEach((message) => {
+      console.log(
+        `%c${message.author.globalName}: ${message.content}`,
+        css.information
+      );
+      message.content.split(newLineRegex).forEach((line) => {
+        console.log(`%c${line.match(userRegex).trimd()}`, css.information);
       });
-    console.log("Messages fetched");
+    });
+
+    const messageCount = messages
+      .map((message) => message.author)
+      .reduce((acc, user) => {
+        acc[user.displayName] = (acc[user.displayName] || 0) + 1;
+        return acc;
+      }, {});
+    for (const [user, messages] of Object.entries(messageCount)) {
+      console.log(`%c${user}: ${messages} messages`, css.information);
+    }
   });
 });
 

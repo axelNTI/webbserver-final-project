@@ -1,1 +1,2 @@
 Kör "npm prune" efter jag har kört "npm uninstall" på alla oanvända packages i package.json
+Kör "npm update --save"
