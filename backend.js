@@ -74,7 +74,7 @@ const sqlInjectionRegex =
 const newLineRegex = /\n/;
 
 // Regex for finding the string between a dash and the first of the following: [a new line or a comma or the end of the string or the string "om"]
-const userRegex = /(?<=["”].*["”] -).*?(?=\n|,|om|till|$)/;
+const userRegex = /(?<=["”].*["”] -).*?(?=\n|,| om| till| medan|$)/;
 
 const db = mysql.createConnection({
   host: process.env.DATABASE_HOST,
@@ -426,20 +426,26 @@ client.on(Events.ClientReady, (readyClient) => {
           messages.indexOf(message) !== messages.length - 1 && !message.system
       )
       .reverse();
-
-    const incorrectMessages = [];
-
-    const quoted = filteredMessages.map((message) => {
-      try {
-        return message.content
-          .split(newLineRegex)
-          .map((line) => line.match(userRegex)[0].trim());
-      } catch (e) {
-        incorrectMessages.push(message);
-        console.log(`%c${e}`, css.error);
+    filteredMessages.forEach((message) => {
+      // Check if message contains specific string
+      if (message.content.includes("WInroth")) {
+        console.log(`%c${message.content}`, css.information);
       }
     });
 
+    const quoted = filteredMessages.flatMap((message) => {
+      const individuals = [];
+      const lines = message.content.split(newLineRegex);
+      lines.forEach((line) => {
+        const matches = line.match(userRegex);
+        if (matches) {
+          individuals.push(...matches.map((match) => match.trim()));
+        } else {
+          console.log(`%c${line}`, css.error);
+        }
+      });
+      return individuals;
+    });
     const quotedCount = Object.fromEntries(
       Object.entries(
         quoted.reduce((acc, user) => {
@@ -448,24 +454,18 @@ client.on(Events.ClientReady, (readyClient) => {
         }, {})
       ).sort(([, a], [, b]) => b - a)
     );
-
     for (const [user, quotes] of Object.entries(quotedCount)) {
       console.log(`%c${user}: ${quotes} quotes`, css.information);
     }
-
     const messageCount = messages
       .map((message) => message.author)
       .reduce((acc, user) => {
         acc[user.displayName] = (acc[user.displayName] || 0) + 1;
         return acc;
       }, {});
-    // for (const [user, messages] of Object.entries(messageCount)) {
-    //   console.log(`%c${user}: ${messages} messages`, css.information);
-    // }
-
-    incorrectMessages.forEach((message) => {
-      console.log(`%c${message.content}`, css.error);
-    });
+    for (const [user, messages] of Object.entries(messageCount)) {
+      console.log(`%c${user}: ${messages} messages`, css.information);
+    }
   });
 });
 
