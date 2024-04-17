@@ -36,29 +36,21 @@ async function fetchAllMessages() {
     process.env.DISCORD_CHANNEL_CITAT_DEPARTEMENTET
   );
   let messages = [];
-
-  // Create message pointer
   let message = null;
-
   do {
-    // Fetch messages
     const fetchedMessages = await channel.messages.fetch({
       limit: 100,
       before: message,
     });
-
-    // If there are fetched messages, add them to the messages array
     if (fetchedMessages.size > 0) {
       messages = messages.concat(Array.from(fetchedMessages.values()));
-      // Update message pointer to the oldest message in the fetched batch
       message = fetchedMessages.lastKey();
     } else {
-      // If no more messages to fetch, exit loop
       message = null;
     }
   } while (message);
 
-  return messages; // Print all messages
+  return messages;
 }
 
 const emailRegex =
@@ -125,6 +117,37 @@ app.get("/citat", (req, res) => {
       return res.status(500).json({ message: "Server error" });
     }
     res.json(result);
+    const quoted = filteredMessages.flatMap((message) => {
+      const individuals = [];
+      const lines = message.content.split(newLineRegex);
+      lines.forEach((line) => {
+        const matches = line.match(userRegex);
+        if (matches) {
+          individuals.push(...matches.map((match) => match.trim()));
+        } else {
+          console.log(`%c${line}`, css.error);
+        }
+      });
+      return individuals;
+    });
+    const quotedCount = Object.fromEntries(
+      Object.entries(
+        quoted.reduce((acc, user) => {
+          acc[user] = (acc[user] || 0) + 1;
+          return acc;
+        }, {})
+      ).sort(([, a], [, b]) => b - a)
+    );
+    const messageCount = Object.fromEntries(
+      Object.entries(
+        filteredMessages
+          .map((message) => message.author)
+          .reduce((acc, user) => {
+            acc[user.displayName] = (acc[user.displayName] || 0) + 1;
+            return acc;
+          }, {})
+      ).sort(([, a], [, b]) => b - a)
+    );
     res.render("citat", { citat: result });
   });
 });
@@ -342,7 +365,6 @@ app.post("/auth/forgot", (req, res) => {
   if (!email) {
     return res.status(400).json({ message: "Fyll i epostadress" });
   }
-
   db.query("SELECT email, email_verified FROM users", (err, result) => {
     if (err) {
       console.error(`%c${err}`, css.error);
@@ -416,7 +438,6 @@ app.post("/auth/discord", async (req, res) => {
     },
   });
   const discordUser = await userResult.body.json();
-
   username = discordUser.username;
   displayname = discordUser.global_name;
   console.log(
@@ -436,38 +457,14 @@ client.on(Events.ClientReady, (readyClient) => {
         (message) =>
           messages.indexOf(message) !== messages.length - 1 && !message.system
       )
-      .reverse();
-    const quoted = filteredMessages.flatMap((message) => {
-      const individuals = [];
-      const lines = message.content.split(newLineRegex);
-      lines.forEach((line) => {
-        const matches = line.match(userRegex);
-        if (matches) {
-          individuals.push(...matches.map((match) => match.trim()));
-        } else {
-          console.log(`%c${line}`, css.error);
+      .reverse()
+      .filter((message) => {
+        const matched = message.content.match(userRegex);
+        if (matched === null) {
+          console.log(`%c${message.content}`, css.error);
         }
+        return matched !== null;
       });
-      return individuals;
-    });
-    const quotedCount = Object.fromEntries(
-      Object.entries(
-        quoted.reduce((acc, user) => {
-          acc[user] = (acc[user] || 0) + 1;
-          return acc;
-        }, {})
-      ).sort(([, a], [, b]) => b - a)
-    );
-    const messageCount = Object.fromEntries(
-      Object.entries(
-        messages
-          .map((message) => message.author)
-          .reduce((acc, user) => {
-            acc[user.displayName] = (acc[user.displayName] || 0) + 1;
-            return acc;
-          }, {})
-      ).sort(([, a], [, b]) => b - a)
-    );
     db.query("SELECT * FROM citat", (err, result) => {
       if (err) {
         console.error(`%c${err}`, css.error);
@@ -494,15 +491,20 @@ client.on(Events.ClientReady, (readyClient) => {
           }
         );
       });
-      if (newQuotes.length > 0) {
-        console.log(`%c${newQuotes.length} nya citat inlagda`, css.success);
-      }
+      console.log(`%c${newQuotes.length} nya citat inlagda`, css.success);
     });
   });
 });
 
 client.on(Events.MessageCreate, (message) => {
-  if (message.channelId !== process.env.DISCORD_CHANNEL_CITAT_DEPARTEMENTET) {
+  if (
+    message.channelId !== process.env.DISCORD_CHANNEL_CITAT_DEPARTEMENTET ||
+    message.system
+  ) {
+    return;
+  }
+  if (message.content.match(userRegex) === null) {
+    console.log(`%c${message.content}`, css.error);
     return;
   }
   db.query(
