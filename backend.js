@@ -468,10 +468,6 @@ client.on(Events.ClientReady, (readyClient) => {
           }, {})
       ).sort(([, a], [, b]) => b - a)
     );
-
-    for (const [key, value] of Object.entries(quotedCount)) {
-      console.log(`%c${key}: ${value}`, css.information);
-    }
     db.query("SELECT * FROM citat", (err, result) => {
       if (err) {
         console.error(`%c${err}`, css.error);
@@ -498,17 +494,33 @@ client.on(Events.ClientReady, (readyClient) => {
           }
         );
       });
-      console.log(`%c${newQuotes.length} nya citat inlagda`, css.success);
+      if (newQuotes.length > 0) {
+        console.log(`%c${newQuotes.length} nya citat inlagda`, css.success);
+      }
     });
   });
 });
 
 client.on(Events.MessageCreate, (message) => {
-  // Check channel ID
   if (message.channelId !== process.env.DISCORD_CHANNEL_CITAT_DEPARTEMENTET) {
     return;
   }
-  console.log(`%cContent not implemented`, css.warning);
+  db.query(
+    "INSERT INTO citat SET?",
+    {
+      upvotes: 0,
+      downvotes: 0,
+      quote: message.content,
+      discordUsername: message.author.username,
+    },
+    (err, result) => {
+      if (err) {
+        console.error(`%c${err}`, css.error);
+        return;
+      }
+      console.log(`%cCitat inlagt: ${message.content}`, css.information);
+    }
+  );
 });
 
 const port = 4000;
