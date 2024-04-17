@@ -118,6 +118,17 @@ app.get("/discordAuth", (req, res) => {
   res.render("discordAuth", req.query);
 });
 
+app.get("/citat", (req, res) => {
+  db.query("SELECT * FROM citat", (err, result) => {
+    if (err) {
+      console.error(`%c${err}`, css.error);
+      return res.status(500).json({ message: "Server error" });
+    }
+    res.json(result);
+    res.render("citat", { citat: result });
+  });
+});
+
 app.get("*", (req, res) => {
   res.redirect("http://localhost:4000");
 });
@@ -426,13 +437,6 @@ client.on(Events.ClientReady, (readyClient) => {
           messages.indexOf(message) !== messages.length - 1 && !message.system
       )
       .reverse();
-    filteredMessages.forEach((message) => {
-      // Check if message contains specific string
-      if (message.content.includes("WInroth")) {
-        console.log(`%c${message.content}`, css.information);
-      }
-    });
-
     const quoted = filteredMessages.flatMap((message) => {
       const individuals = [];
       const lines = message.content.split(newLineRegex);
@@ -454,18 +458,48 @@ client.on(Events.ClientReady, (readyClient) => {
         }, {})
       ).sort(([, a], [, b]) => b - a)
     );
-    for (const [user, quotes] of Object.entries(quotedCount)) {
-      console.log(`%c${user}: ${quotes} quotes`, css.information);
+    const messageCount = Object.fromEntries(
+      Object.entries(
+        messages
+          .map((message) => message.author)
+          .reduce((acc, user) => {
+            acc[user.displayName] = (acc[user.displayName] || 0) + 1;
+            return acc;
+          }, {})
+      ).sort(([, a], [, b]) => b - a)
+    );
+
+    for (const [key, value] of Object.entries(quotedCount)) {
+      console.log(`%c${key}: ${value}`, css.information);
     }
-    const messageCount = messages
-      .map((message) => message.author)
-      .reduce((acc, user) => {
-        acc[user.displayName] = (acc[user.displayName] || 0) + 1;
-        return acc;
-      }, {});
-    for (const [user, messages] of Object.entries(messageCount)) {
-      console.log(`%c${user}: ${messages} messages`, css.information);
-    }
+    db.query("SELECT * FROM citat", (err, result) => {
+      if (err) {
+        console.error(`%c${err}`, css.error);
+        return;
+      }
+      const dbQuotes = result.map((quote) => quote.quote);
+      const newQuotes = filteredMessages.filter(
+        (message) => !dbQuotes.includes(message.content)
+      );
+      newQuotes.forEach((message) => {
+        db.query(
+          "INSERT INTO citat SET?",
+          {
+            upvotes: 0,
+            downvotes: 0,
+            quote: message.content,
+            discordUsername: message.author.username,
+          },
+          (err, result) => {
+            if (err) {
+              console.error(`%c${err}`, css.error);
+              return;
+            }
+          }
+        );
+      });
+      console.log(`%c${newQuotes.length} nya citat inlagda`, css.success);
+    });
   });
 });
 
