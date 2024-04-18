@@ -1,20 +1,38 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<html lang='en'>
+  <head>
+    <meta charset='UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
     <title>Citat</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.1/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-iYQeCzEYFbKjA/T2uDLTpkwGzCiq6soy8tYaI1GyVh/UjpbCx/TYkiZhlZB6+fzT" crossorigin="anonymous" />
-    <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js" crossorigin="anonymous"></script>
-</head>
-<body>
+    <link
+      href='https://cdn.jsdelivr.net/npm/bootstrap@5.2.1/dist/css/bootstrap.min.css'
+      rel='stylesheet'
+      integrity='sha384-iYQeCzEYFbKjA/T2uDLTpkwGzCiq6soy8tYaI1GyVh/UjpbCx/TYkiZhlZB6+fzT'
+      crossorigin='anonymous'
+    />
+    <script
+      src='https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js'
+      crossorigin='anonymous'
+    ></script>
+  </head>
+  <body>
+    <h1>Quotes</h1>
+    <ul>
+      {{#each citat}}
+        <li>{{this.discordUsername}}:
+          {{this.quote}}
+          <br />
+        </li>
+      {{/each}}
+    </ul>
     <script>
-        $(document).ready(function() {
-            $.get('http://localhost:4000/citat', function(data) {
-                $('#citat').html(data);
-            });
-        });
+      $(document).ready(function () { $("li").each(function () { if
+      ($(this).text().includes("\n")) {
+      $(this).html($(this).text().replace(/\n/g, "<br>")); } }); const ws = new
+      WebSocket('ws://localhost:8080'); ws.onmessage = function(event) { const
+      message = JSON.parse(event.data); const messagesList =
+      document.getElementById('messages'); const li =
+      document.createElement('li'); li.textContent = message.content;
+      messagesList.appendChild(li); };});
     </script>
-</body>
+  </body>
 </html>
