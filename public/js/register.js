@@ -1,5 +1,5 @@
 $(function () {
-  const ws = new WebSocket('ws://localhost:8080/register');
+  const ws = new WebSocket('ws://localhost:8080?=register');
   $('form').on('submit', function (event) {
     event.preventDefault();
     const name = $('#name-reg').val();

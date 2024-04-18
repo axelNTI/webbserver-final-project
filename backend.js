@@ -82,7 +82,6 @@ async function fetchAllMessages() {
       message = null;
     }
   } while (message);
-
   return messages;
 }
 
@@ -522,10 +521,10 @@ client.on(Events.ClientReady, (readyClient) => {
               console.error(`%c${err}`, css.error);
               return;
             }
-            console.log(`%c${newQuotes.length} nya citat inlagda`, css.success);
           }
         );
       });
+      console.log(`%c${newQuotes.length} nya citat inlagda`, css.success);
     });
   });
 });
