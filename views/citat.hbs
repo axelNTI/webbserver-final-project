@@ -13,6 +13,7 @@
       src='https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js'
       crossorigin='anonymous'
     ></script>
+    <script src='/js/citat.js'></script>
   </head>
   <body>
     <h1>Quotes</h1>
@@ -24,15 +25,5 @@
         </li>
       {{/each}}
     </ul>
-    <script>
-      $(document).ready(function () { $("li").each(function () { if
-      ($(this).text().includes("\n")) {
-      $(this).html($(this).text().replace(/\n/g, "<br>")); } }); const ws = new
-      WebSocket('ws://localhost:8080'); ws.onmessage = function(event) { const
-      message = JSON.parse(event.data); const messagesList =
-      document.getElementById('messages'); const li =
-      document.createElement('li'); li.textContent = message.content;
-      messagesList.appendChild(li); };});
-    </script>
   </body>
 </html>

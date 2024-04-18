@@ -39,7 +39,7 @@ const connections = new Map();
 
 wss.on('connection', function connection(ws, req) {
   console.log('%cNew client connected', css.information);
-  const pageId = extractPageId(req.url);
+  const pageId = req.url.split('=')[1];
   connections.set(ws, pageId);
   ws.on('message', function incoming(message) {
     console.log(`%cReceived message: ${message}`, css.information);
@@ -110,6 +110,7 @@ const db = mysql.createConnection({
 
 app.use(express.urlencoded({ extended: 'false' }));
 app.use(express.json());
+app.use(express.static('public'));
 
 const transporter = nodemailer.createTransport({
   service: process.env.EMAIL_SERVICE,
@@ -149,7 +150,6 @@ app.get('/citat', (req, res) => {
       console.error(`%c${err}`, css.error);
       return res.status(500).json({ message: 'Server error' });
     }
-    console.log(result);
     // res.json(result);
     // const quoted = filteredMessages.flatMap((message) => {
     //   const individuals = [];
@@ -557,9 +557,8 @@ client.on(Events.MessageCreate, (message) => {
       console.log(`%cCitat inlagt: ${message.content}`, css.information);
     }
   );
-  const targetPageId = determineTargetPageId(message);
   connections.forEach((pageId, ws) => {
-    if (pageId === targetPageId && ws.readyState === WebSocket.OPEN) {
+    if (pageId === 'citat' && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(message));
     }
   });

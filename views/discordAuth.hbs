@@ -1,47 +1,26 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<html lang='en'>
+  <head>
+    <meta charset='UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
     <title>Discord OAuth2</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.1/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-iYQeCzEYFbKjA/T2uDLTpkwGzCiq6soy8tYaI1GyVh/UjpbCx/TYkiZhlZB6+fzT" crossorigin="anonymous" />
-    <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js" crossorigin="anonymous"></script>
-</head>
-<body>
-   <div id="info">
-		Hoi!
-	</div>
-	<!-- Note: This example uses the implicit grant flow (https://discordjs.guide/oauth2/#implicit-grant-flow), so make sure you use `response_type=token` here -->
-	<a href="https://discord.com/oauth2/authorize?client_id=1222824481571999856&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A4000%2FdiscordAuth&scope=identify">Identify Yourself</a>
-	<script>
-        // On page load
-        $(document).ready(function() {
-            // Get the URL parameters
-            const queryString = window.location.search;
-            const urlParams = new URLSearchParams(queryString);
-            
-            // Check if the URL parameter is code
-
-            if (urlParams.has('code')) {
-                // Get the code from the URL
-                const code = urlParams.get('code');
-                // Send a POST request to the server
-                $.post('http://localhost:4000/auth/discord', { code: code }, function(data) {
-                });
-                window.location.href = "http://localhost:4000/"
-            }
-
-            if (urlParams.has('error')) {
-                // Get the error from the URL
-                const error = urlParams.get('error');
-                const errorDescription = urlParams.get('error_description');
-                // Display the error
-                $('#info').html(`Error: ${error}<br>Description: ${errorDescription}`);
-            }
-        });
-
-
-	</script>
-</body>
+    <link
+      href='https://cdn.jsdelivr.net/npm/bootstrap@5.2.1/dist/css/bootstrap.min.css'
+      rel='stylesheet'
+      integrity='sha384-iYQeCzEYFbKjA/T2uDLTpkwGzCiq6soy8tYaI1GyVh/UjpbCx/TYkiZhlZB6+fzT'
+      crossorigin='anonymous'
+    />
+    <script
+      src='https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js'
+      crossorigin='anonymous'
+    ></script>
+    <script src='/js/discordAuth.js'></script>
+  </head>
+  <body>
+    <div id='info'>
+      Hoi!
+    </div>
+    <a
+      href='https://discord.com/oauth2/authorize?client_id=1222824481571999856&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A4000%2FdiscordAuth&scope=identify'
+    >Identify Yourself</a>
+  </body>
 </html>

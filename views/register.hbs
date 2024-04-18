@@ -1,144 +1,90 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<html lang='en'>
+  <head>
+    <meta charset='UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
     <title>Registrera dig</title>
-     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-iYQeCzEYFbKjA/T2uDLTpkwGzCiq6soy8tYaI1GyVh/UjpbCx/TYkiZhlZB6+fzT" crossorigin="anonymous">
-    
-</head>
-<body>
-     <nav>
-        <h4>Min fina sida</h4>
-        <ul>
-            <li><a href="/">Hem</a></li>
-            <li><a href="/login">Logga in</a></li>
-            <li><a href="/register">Registrera</a></li>
-        </ul>
+    <link
+      href='https://cdn.jsdelivr.net/npm/bootstrap@5.2.1/dist/css/bootstrap.min.css'
+      rel='stylesheet'
+      integrity='sha384-iYQeCzEYFbKjA/T2uDLTpkwGzCiq6soy8tYaI1GyVh/UjpbCx/TYkiZhlZB6+fzT'
+      crossorigin='anonymous'
+    />
+    <script
+      src='https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js'
+      crossorigin='anonymous'
+    ></script>
+    <script src='/js/register.js'></script>
+
+  </head>
+  <body>
+    <nav>
+      <h4>Min fina sida</h4>
+      <ul>
+        <li><a href='/'>Hem</a></li>
+        <li><a href='/login'>Logga in</a></li>
+        <li><a href='/register'>Registrera</a></li>
+      </ul>
     </nav>
 
-    <div class="container mt-4">
-        <div class="card" style="width: 18rem;">            
-            <div class="card-header">Registrera dig</div>    
-            <div class="card-body">
-                <form>
-                    <div class="mb-3">
-                        <label for="name-reg" class="form-label">Namn:</label>
-                        <input type="text" class="form-control" id="name-reg" name="name">                        
-                    </div>
-                    <div class="mb-3">
-                        <label for="email-reg" class="form-label">E-post:</label>
-                        <input type="text" class="form-control" id="email-reg" name="email">                        
-                    </div>
-                    <div class="mb-3">
-                        <label for="password-reg" class="form-label">Lösenord:</label>
-                        <input type="password" class="form-control" id="password-reg" name="password">
-                    </div>
-                    <div class="mb-3">
-                        <label for="password-conf-reg" class="form-label">Bekräfta lösenord:</label>
-                        <input type="password" class="form-control" id="password-conf-reg" name="password_confirm">
-                    </div>
-
-                    <button type="submit" class="btn btn-primary">Registrera dig</button>
-                </form>
+    <div class='container mt-4'>
+      <div class='card' style='width: 18rem;'>
+        <div class='card-header'>Registrera dig</div>
+        <div class='card-body'>
+          <form>
+            <div class='mb-3'>
+              <label for='name-reg' class='form-label'>Namn:</label>
+              <input
+                type='text'
+                class='form-control'
+                id='name-reg'
+                name='name'
+              />
             </div>
+            <div class='mb-3'>
+              <label for='email-reg' class='form-label'>E-post:</label>
+              <input
+                type='text'
+                class='form-control'
+                id='email-reg'
+                name='email'
+              />
+            </div>
+            <div class='mb-3'>
+              <label for='password-reg' class='form-label'>Lösenord:</label>
+              <input
+                type='password'
+                class='form-control'
+                id='password-reg'
+                name='password'
+              />
+            </div>
+            <div class='mb-3'>
+              <label for='password-conf-reg' class='form-label'>Bekräfta
+                lösenord:</label>
+              <input
+                type='password'
+                class='form-control'
+                id='password-conf-reg'
+                name='password_confirm'
+              />
+            </div>
+
+            <button type='submit' class='btn btn-primary'>Registrera dig</button>
+          </form>
         </div>
+      </div>
     </div>
-    {{!-- Visar upp eventuella meddelanden --}}
-    {{#if message }}
-    <h4 class="alert alert-danger mt-4">{{message}}</h4>
+    {{! Visar upp eventuella meddelanden }}
+    {{#if message}}
+      <h4 class='alert alert-danger mt-4'>{{message}}</h4>
     {{else}}
-    <h4 class="alert alert-danger mt-4" style="display: none;"></h4>
+      <h4 class='alert alert-danger mt-4' style='display: none;'></h4>
     {{/if}}
-    
+
     <script>
-        // Här skapar vi en eventlistener som lyssnar på när formuläret skickas.
-        document.addEventListener("DOMContentLoaded", function () {
-                document.querySelector("form").addEventListener("submit", function (event) {
-                    event.preventDefault();
-
-                    // Här hämtar vi användarnamn, epostaddress och lösenord från formuläret.
-                    let name = document.querySelector("#name-reg").value;
-                    let email = document.querySelector("#email-reg").value;
-                    let password = document.querySelector("#password-reg").value;
-                    let password_confirm = document.querySelector("#password-conf-reg").value;
-
-                    // Här skapar vi en regex för att kolla så att epostaddressen är giltig.
-                    // https://stackoverflow.com/questions/46155/how-can-i-validate-an-email-address-in-javascript
-                    const emailRegex =
-                        /^(([^<>()[\]\.,;:\s@\"]+(\.[^<>()[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i;
-
-                    // Här skapar vi en regex för att kolla så att lösenordet är giltigt.
-                    const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])[0-9a-zA-Z]{8,35}$/;
-
-                    // Här skapar vi en variabel för att visa upp eventuella meddelanden.
-                    const messageContent = document.querySelector(".alert");
-
-                    // Här kollar vi så att användaren har fyllt i alla fält.
-                    if (!name || !email || !password || !password_confirm) {
-                        messageContent.textContent = "Fyll i alla fält";
-                        messageContent.style.display = "block";
-                        return;
-
-                    }
-
-                    // Här kollar vi så att lösenorden matchar.
-                    if (password !== password_confirm) {
-                        messageContent.textContent = "Lösenorden matchar inte";
-                        messageContent.style.display = "block";
-                        return;
-                    }
-
-                    // Här kollar vi så att epostaddressen är giltig.
-                    if (!emailRegex.test(email)) {
-                        messageContent.textContent = "Ogiltig epostadress";
-                        messageContent.style.display = "block";
-                        return;
-                    }
-
-                    // Här kollar vi så att användarnamnet inte är en epostaddress.
-                    if (emailRegex.test(name)) {
-                        messageContent.textContent = "Användarnamn får inte vara en epostadress";
-                        messageContent.style.display = "block";
-                        return;
-                    }
-
-                    // Här kollar vi så att lösenordet är giltigt.
-                    if (!passwordRegex.test(password)) {
-                        messageContent.textContent =
-                            "Lösenordet måste innehålla mellan 8 och 35 tecken, varav minst en siffra, en stor bokstav och en liten bokstav";
-                        messageContent.style.display = "block";
-                        return;
-                    }
-
-                    // Här skickar vi användarnamn, epostaddress och lösenord till servern.
-                    fetch("/auth/register", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({
-                            name: name,
-                            email: email,
-                            password: password,
-                            password_confirm: password_confirm,
-                        }),
-                    })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.message) {
-
-                                // Här visar vi upp eventuella meddelanden från servern.
-                                messageContent.textContent = data.message;
-                                messageContent.style.display = "block";
-                            }
-                        })
-                        .catch(error => {
-                            console.error(error);
-                        });
-                });
-            });
+      // Här skapar vi en eventlistener som lyssnar på när formuläret skickas.
+      
     </script>
-    
-</body>
+
+  </body>
 </html>
