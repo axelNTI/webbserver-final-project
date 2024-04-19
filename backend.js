@@ -64,10 +64,8 @@ const client = new Client({
   ],
 });
 
-async function fetchAllMessages() {
-  const channel = client.channels.cache.get(
-    process.env.DISCORD_CHANNEL_CITAT_DEPARTEMENTET
-  );
+async function fetchAllMessages(channel_id) {
+  const channel = client.channels.cache.get(channel_id);
   let messages = [];
   let message = null;
   do {
@@ -182,6 +180,16 @@ app.get('/citat', (req, res) => {
     //   ).sort(([, a], [, b]) => b - a)
     // );
     res.render('citat', { citat: result });
+  });
+});
+
+app.get('/screenshots', (req, res) => {
+  db.query('SELECT * FROM screenshots', (err, result) => {
+    if (err) {
+      console.error(`%c${err}`, css.error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+    res.render('screenshots', { screenshots: result });
   });
 });
 
@@ -484,83 +492,156 @@ client.login(process.env.DISCORD_TOKEN);
 
 client.on(Events.ClientReady, (readyClient) => {
   console.log(`%cBotten är online som ${readyClient.user.tag}`, css.success);
-  fetchAllMessages().then((messages) => {
-    filteredMessages = messages
-      .filter(
-        (message) =>
-          messages.indexOf(message) !== messages.length - 1 && !message.system
-      )
-      .reverse()
-      .filter((message) => {
-        const matched = message.content.match(userRegex);
-        if (matched === null) {
-          console.log(`%c${message.content}`, css.error);
-        }
-        return matched !== null;
-      });
-    db.query('SELECT * FROM citat', (err, result) => {
-      if (err) {
-        console.error(`%c${err}`, css.error);
-        return;
-      }
-      const dbQuotes = result.map((quote) => quote.quote);
-      const newQuotes = filteredMessages.filter(
-        (message) => !dbQuotes.includes(message.content)
-      );
-      newQuotes.forEach((message) => {
-        db.query(
-          'INSERT INTO citat SET?',
-          {
-            upvotes: 0,
-            downvotes: 0,
-            quote: message.content,
-            discordUsername: message.author.username,
-          },
-          (err, result) => {
-            if (err) {
-              console.error(`%c${err}`, css.error);
-              return;
-            }
+  fetchAllMessages(process.env.DISCORD_CHANNEL_ID_CITAT_DEPARTEMENTET).then(
+    (messages) => {
+      filteredMessages = messages
+        .filter(
+          (message) =>
+            messages.indexOf(message) !== messages.length - 1 && !message.system
+        )
+        .reverse()
+        .filter((message) => {
+          const matched = message.content.match(userRegex);
+          if (matched === null) {
+            console.log(`%c${message.content}`, css.error);
           }
+          return matched !== null;
+        });
+      db.query('SELECT * FROM citat', (err, result) => {
+        if (err) {
+          console.error(`%c${err}`, css.error);
+          return;
+        }
+        const dbQuotes = result.map((quote) => quote.quote);
+        const newQuotes = filteredMessages.filter(
+          (message) => !dbQuotes.includes(message.content)
+        );
+        newQuotes.forEach((message) => {
+          db.query(
+            'INSERT INTO citat SET?',
+            {
+              upvotes: 0,
+              downvotes: 0,
+              quote: message.content,
+              discordUsername: message.author.username,
+            },
+            (err, result) => {
+              if (err) {
+                console.error(`%c${err}`, css.error);
+                return;
+              }
+            }
+          );
+        });
+        console.log(`%c${newQuotes.length} nya citat inlagda`, css.success);
+      });
+    }
+  );
+  fetchAllMessages(process.env.DISCORD_CHANNEL_ID_SCREENSHOTS).then(
+    (messages) => {
+      db.query('SELECT * FROM screenshots', (err, result) => {
+        if (err) {
+          console.error(`%c${err}`, css.error);
+          return;
+        }
+        const filteredScreenshots = messages
+          .filter((message) => message.attachments.size > 0)
+          .reverse();
+        const dbScreenshots = result.map((screenshot) => screenshot.url);
+        const newScreenshots = [];
+        filteredScreenshots.forEach((message) => {
+          message.attachments.forEach((attachment) => {
+            if (!dbScreenshots.includes(attachment.url)) {
+              newScreenshots.push({ attachment, message });
+            }
+          });
+        });
+
+        newScreenshots.forEach((entry) => {
+          db.query(
+            'INSERT INTO screenshots SET?',
+            {
+              url: entry.attachment.url,
+              discordUsername: entry.message.author.username,
+              messageID: entry.message.id,
+            },
+            (err, result) => {
+              if (err) {
+                console.error(`%c${err}`, css.error);
+                return;
+              }
+            }
+          );
+        });
+        console.log(
+          `%c${newScreenshots.length} nya screenshots inlagda`,
+          css.success
         );
       });
-      console.log(`%c${newQuotes.length} nya citat inlagda`, css.success);
-    });
-  });
+    }
+  );
 });
 
 client.on(Events.MessageCreate, (message) => {
   if (
-    message.channelId !== process.env.DISCORD_CHANNEL_CITAT_DEPARTEMENTET ||
-    message.system
+    message.channelID === process.env.DISCORD_CHANNEL_ID_CITAT_DEPARTEMENTET
   ) {
-    return;
-  }
-  if (message.content.match(userRegex) === null) {
-    console.log(`%c${message.content}`, css.error);
-    return;
-  }
-  db.query(
-    'INSERT INTO citat SET?',
-    {
-      upvotes: 0,
-      downvotes: 0,
-      quote: message.content,
-      discordUsername: message.author.username,
-    },
-    (err, result) => {
-      if (err) {
-        console.error(`%c${err}`, css.error);
-        return;
+    if (message.content.match(userRegex) === null) {
+      console.log(`%c${message.content}`, css.error);
+      return;
+    }
+    db.query(
+      'INSERT INTO citat SET?',
+      {
+        upvotes: 0,
+        downvotes: 0,
+        quote: message.content,
+        discordUsername: message.author.username,
+      },
+      (err, result) => {
+        if (err) {
+          console.error(`%c${err}`, css.error);
+          return;
+        }
+        console.log(`%cCitat inlagt: ${message.content}`, css.information);
       }
-      console.log(`%cCitat inlagt: ${message.content}`, css.information);
-    }
-  );
-  connections.forEach((pageId, ws) => {
-    if (pageId === 'citat' && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(message));
-    }
-  });
+    );
+    connections.forEach((pageId, ws) => {
+      if (pageId === 'citat' && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(message));
+      }
+    });
+    return;
+  } else if (message.channelID === process.env.DISCORD_CHANNEL_ID_SCREENSHOTS) {
+    message.attachments.forEach((attachment) => {
+      db.query(
+        'INSERT INTO screenshots SET?',
+        {
+          url: attachment.url,
+          discordUsername: message.author.username,
+          messageID: message.id,
+        },
+        (err, result) => {
+          if (err) {
+            console.error(`%c${err}`, css.error);
+            return;
+          }
+          console.log(
+            `%cScreenshot inlagt: ${attachment.url}`,
+            css.information
+          );
+        }
+      );
+      connections.forEach((pageId, ws) => {
+        if (pageId === 'screenshots' && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(message));
+        }
+      });
+    });
+    return;
+  } else {
+    console.log(message);
+  }
 });
 
 const port = 4000;

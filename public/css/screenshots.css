@@ -1,0 +1,10 @@
+body {
+  & > ul {
+    & > li {
+      & > img {
+        width: 100svw;
+        height: auto;
+      }
+    }
+  }
+}
