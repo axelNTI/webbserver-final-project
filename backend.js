@@ -639,8 +639,6 @@ client.on(Events.MessageCreate, (message) => {
       });
     });
     return;
-  } else {
-    console.log(message);
   }
 });
 
