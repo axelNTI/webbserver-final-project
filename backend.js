@@ -38,15 +38,16 @@ const wss = new WebSocket.Server({ port: 8080 });
 const connections = new Map();
 
 wss.on('connection', function connection(ws, req) {
-  console.log('%cNew client connected', css.information);
   const pageId = req.url.split('=')[1];
   connections.set(ws, pageId);
   ws.on('message', function incoming(message) {
     console.log(`%cReceived message: ${message}`, css.information);
   });
   ws.on('close', function () {
-    console.log('%cClient disconnected', css.information);
     connections.delete(ws);
+  });
+  ws.on('error', function (error) {
+    console.error(`%c${error}`, css.error);
   });
 });
 
@@ -139,6 +140,10 @@ app.get('/login', (req, res) => {
 
 app.get('/discordAuth', (req, res) => {
   res.render('discordAuth', req.query);
+});
+
+app.get('/account', isAuthenticated, (req, res) => {
+  res.render('account', req.query);
 });
 
 app.get('/citat', (req, res) => {
@@ -539,44 +544,33 @@ client.on(Events.ClientReady, (readyClient) => {
   );
   fetchAllMessages(process.env.DISCORD_CHANNEL_ID_SCREENSHOTS).then(
     (messages) => {
-      db.query('SELECT * FROM screenshots', (err, result) => {
+      db.query('TRUNCATE TABLE screenshots', (err, result) => {
         if (err) {
           console.error(`%c${err}`, css.error);
           return;
         }
-        const filteredScreenshots = messages
-          .filter((message) => message.attachments.size > 0)
-          .reverse();
-        const dbScreenshots = result.map((screenshot) => screenshot.url);
-        const newScreenshots = [];
-        filteredScreenshots.forEach((message) => {
-          message.attachments.forEach((attachment) => {
-            if (!dbScreenshots.includes(attachment.url)) {
-              newScreenshots.push({ attachment, message });
-            }
+        messages
+          .filter((message) => message.attachments.size > 0 && !message.system)
+          .reverse()
+          .forEach((message) => {
+            message.attachments.forEach((attachment) => {
+              db.query(
+                'INSERT INTO screenshots SET?',
+                {
+                  url: attachment.url,
+                  discordUsername: message.author.username,
+                  messageID: message.id,
+                },
+                (err, result) => {
+                  if (err) {
+                    console.error(`%c${err}`, css.error);
+                    return;
+                  }
+                }
+              );
+            });
           });
-        });
-
-        newScreenshots.forEach((entry) => {
-          db.query(
-            'INSERT INTO screenshots SET?',
-            {
-              url: entry.attachment.url,
-              discordUsername: entry.message.author.username,
-              messageID: entry.message.id,
-            },
-            (err, result) => {
-              if (err) {
-                console.error(`%c${err}`, css.error);
-                return;
-              }
-            }
-          );
-        });
-        console.log(
-          `%c${newScreenshots.length} nya screenshots inlagda`,
-          css.success
-        );
+        console.log('%cScreenshots återställda', css.success);
       });
     }
   );

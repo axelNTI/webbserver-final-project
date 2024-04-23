@@ -1,8 +1,9 @@
 body {
+  width: 100svw;
   & > ul {
     & > li {
       & > img {
-        width: 100svw;
+        max-width: 100dvw;
         height: auto;
       }
     }
