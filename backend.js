@@ -97,7 +97,7 @@ const sqlInjectionRegex =
 const newLineRegex = /\n/;
 
 // Regex for finding the string between a dash and the first of the following: [a new line or a comma or the end of the string or the string "om"]
-const userRegex = /(?<=["”].*["”] -).*?(?=\n|,| om| till| medan|$)/;
+const userRegex = /(?<=["”].*["”] -).*?(?=\n|,| om| till| medan| som|$)/;
 
 const db = mysql.createConnection({
   host: process.env.DATABASE_HOST,
@@ -142,8 +142,9 @@ app.get('/discordAuth', (req, res) => {
   res.render('discordAuth', req.query);
 });
 
-app.get('/account', isAuthenticated, (req, res) => {
-  res.render('account', req.query);
+app.get('/account', (req, res) => {
+  console.log(req.session);
+  res.render('account', { user: req.session.user });
 });
 
 app.get('/citat', (req, res) => {
@@ -397,7 +398,15 @@ app.post('/auth/login', (req, res) => {
       if (!passwordMatch) {
         return res.status(400).json({ message: 'Fel inloggningsuppgifter' });
       }
-      return res.status(200).json({ message: 'Inloggad' });
+      req.session.user = name;
+      req.session.save((err) => {
+        if (err) {
+          console.error(`%c${err}`, css.error);
+          return res.status(500).json({ message: 'Server error' });
+        }
+        console.log(`%cInloggad: ${name}`, css.success);
+        return res.status(200).json({ message: 'Inloggad' });
+      });
     }
   );
 });
@@ -578,7 +587,7 @@ client.on(Events.ClientReady, (readyClient) => {
 
 client.on(Events.MessageCreate, (message) => {
   if (
-    message.channelID === process.env.DISCORD_CHANNEL_ID_CITAT_DEPARTEMENTET
+    message.channelId === process.env.DISCORD_CHANNEL_ID_CITAT_DEPARTEMENTET
   ) {
     if (message.content.match(userRegex) === null) {
       console.log(`%c${message.content}`, css.error);
@@ -606,7 +615,7 @@ client.on(Events.MessageCreate, (message) => {
       }
     });
     return;
-  } else if (message.channelID === process.env.DISCORD_CHANNEL_ID_SCREENSHOTS) {
+  } else if (message.channelId === process.env.DISCORD_CHANNEL_ID_SCREENSHOTS) {
     message.attachments.forEach((attachment) => {
       db.query(
         'INSERT INTO screenshots SET?',
