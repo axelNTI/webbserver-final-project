@@ -495,10 +495,10 @@ app.post('/auth/discord', async (req, res) => {
   const discordUser = await userResult.body.json();
   username = discordUser.username;
   displayname = discordUser.global_name;
-  console.log(
-    `%cKopplat Discord-konto: ${displayname} (${username})`,
-    css.information
-  );
+  // console.log(
+  //   `%cKopplat Discord-konto: ${displayname} (${username})`,
+  //   css.information
+  // );
   db.query('SELECT userID from users');
 });
 
@@ -644,6 +644,13 @@ client.on(Events.MessageCreate, (message) => {
     return;
   }
 });
+
+client.on(
+  Events.activityUpdate,
+  (oldActivity, newActivity, activityType, activity) => {
+    console.log(`%c${oldActivity} -> ${newActivity}`, css.information);
+  }
+)
 
 const port = 4000;
 
