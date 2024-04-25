@@ -1,29 +1,59 @@
-<!DOCTYPE html>
-<html lang="en">
+<html lang='en'>
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Regeringen</title>
+    <meta charset='UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
     <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.1/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-      integrity="sha384-iYQeCzEYFbKjA/T2uDLTpkwGzCiq6soy8tYaI1GyVh/UjpbCx/TYkiZhlZB6+fzT"
-      crossorigin="anonymous"
+      rel='stylesheet'
+      href='https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css'
     />
     <script
-      src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js"
-      crossorigin="anonymous"
+      src='https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js'
+      crossorigin='anonymous'
     ></script>
-    <script src="/js/index.js"></script>
-    <link rel="stylesheet" href="/css/reset.css">
+    <script
+      src='https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js'
+    ></script>
+    <title>Regeringen</title>
+    <script src='/js/index.js'></script>
+    <link rel='stylesheet' href='/css/index.css' />
   </head>
   <body>
-    <nav>
-      <a href="/discordAuth">Discord Login</a>
-      <a href="/login">Login</a>
-      <a href="/register">Register</a>
-      <a href="/citat">Citat</a>
-      <a href="/screenshots">Screenshots</a>
+    <header class='page-header text-center'>
+      <h1>
+        Regeringen
+      </h1>
+    </header>
+    <nav class='navbar'>
+      <ul>
+        <li>
+          <a href='/'>
+            Home
+          </a>
+        </li>
+        <li>
+          <a href='/login'>
+            Login
+          </a>
+        </li>
+      </ul>
     </nav>
+    <aside>
+      {{#if user.avatar}}
+        <img src='{{user.avatar}}' alt='' />
+      {{/if}}
+      {{#if user.user}}
+        <p>{{user.user}}</p>
+      {{else}}
+        <p>Guest</p>
+      {{/if}}
+      {{#if user.displayname}}
+        <p>{{user.displayname}}</p>
+      {{else}}
+        <p>Inte inloggad via discord</p>
+      {{/if}}
+      <a href='/account'>
+        Account
+      </a>
+    </aside>
   </body>
 </html>

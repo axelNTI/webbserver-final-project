@@ -2,11 +2,29 @@
   <head>
     <meta charset='UTF-8' />
     <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <link
+      href='https://cdn.jsdelivr.net/npm/bootstrap@5.2.1/dist/css/bootstrap.min.css'
+      rel='stylesheet'
+      integrity='sha384-iYQeCzEYFbKjA/T2uDLTpkwGzCiq6soy8tYaI1GyVh/UjpbCx/TYkiZhlZB6+fzT'
+      crossorigin='anonymous'
+    />
+    <script
+      src='https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js'
+      crossorigin='anonymous'
+    ></script>
     <title>Account</title>
+    <script src='/js/account.js'></script>
   </head>
   <body>
     <h1>Account</h1>
-    <p>Welcome, {{user}}!</p>
-    <a href='/logout'>Logout</a>
+    {{#if user.loggedIn}}
+      <p>Logged in as {{user.user}}</p>
+      <p>Display name: {{user.displayname}}</p>
+      <p>Avatar: <img src='{{user.avatar}}' alt='{{user.displayname}}' /></p>
+      <a href='/logout'>Logout</a>
+    {{else}}
+      <p>Not logged in</p>
+      <a href='/login'>Login</a>
+    {{/if}}
   </body>
 </html>

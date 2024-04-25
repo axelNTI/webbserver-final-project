@@ -4,7 +4,12 @@ const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
-const { Client, Events, GatewayIntentBits, quote } = require('discord.js');
+const {
+  Client,
+  Events,
+  GatewayIntentBits,
+  ActivityType,
+} = require('discord.js');
 const { SpotifyApi } = require('@spotify/web-api-ts-sdk');
 const { read } = require('fs');
 const session = require('express-session');
@@ -13,6 +18,7 @@ const Handlebars = require('handlebars');
 const parseurl = require('parseurl');
 const escapeHtml = require('escape-html');
 const WebSocket = require('ws');
+const { start } = require('repl');
 
 const css = {
   error: 'color: #FF4422;',
@@ -62,6 +68,7 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildPresences,
   ],
 });
 
@@ -127,24 +134,23 @@ db.connect((err) => {
 });
 
 app.get('/', (req, res) => {
-  res.render('index', req.query);
+  res.render('index', { user: req.session, query: req.query });
 });
 
 app.get('/register', (req, res) => {
-  res.render('register', req.query);
+  res.render('register', { user: req.session, query: req.query });
 });
 
 app.get('/login', (req, res) => {
-  res.render('login', req.query);
+  res.render('login', { user: req.session, query: req.query });
 });
 
 app.get('/discordAuth', (req, res) => {
-  res.render('discordAuth', req.query);
+  res.render('discordAuth', { user: req.session, query: req.query });
 });
 
 app.get('/account', (req, res) => {
-  console.log(req.session);
-  res.render('account', { user: req.session.user });
+  res.render('account', { user: req.session, query: req.query });
 });
 
 app.get('/citat', (req, res) => {
@@ -199,8 +205,12 @@ app.get('/screenshots', (req, res) => {
   });
 });
 
+app.get('/404', (req, res) => {
+  res.render('404', { user: req.session, query: req.query });
+});
+
 app.get('*', (req, res) => {
-  res.redirect('http://localhost:4000');
+  res.redirect('http://localhost:4000/404');
 });
 
 app.post('/auth/register', (req, res) => {
@@ -362,7 +372,7 @@ app.get('/delete', (req, res) => {
 });
 
 app.get('/auth', (req, res) => {
-  res.render('auth', req.query);
+  res.render('auth', { user: req.session, query: req.query });
 });
 
 app.post('/auth/login', (req, res) => {
@@ -398,7 +408,9 @@ app.post('/auth/login', (req, res) => {
       if (!passwordMatch) {
         return res.status(400).json({ message: 'Fel inloggningsuppgifter' });
       }
-      req.session.user = name;
+      req.session.user = name_array_login[index];
+      req.session.email = email_array_login[index];
+      req.session.loggedIn = true;
       req.session.save((err) => {
         if (err) {
           console.error(`%c${err}`, css.error);
@@ -493,19 +505,38 @@ app.post('/auth/discord', async (req, res) => {
     },
   });
   const discordUser = await userResult.body.json();
+  console.log(discordUser);
   username = discordUser.username;
   displayname = discordUser.global_name;
-  // console.log(
-  //   `%cKopplat Discord-konto: ${displayname} (${username})`,
-  //   css.information
-  // );
-  db.query('SELECT userID from users');
+  avatar = discordUser.avatar;
+  console.log(
+    `%cKopplat Discord-konto: ${displayname} (${username})`,
+    css.information
+  );
+
+  req.session.username = username;
+  req.session.displayname = displayname;
+  req.session.avatar = `https://cdn.discordapp.com/avatars/${discordUser.id}/${avatar}.png`;
+  req.session.linkedDiscord = true;
+  req.session.save((err) => {
+    if (err) {
+      console.error(`%c${err}`, css.error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+    console.log(`%cInloggad: ${displayname}`, css.success);
+    return res.status(200).json({ message: 'Inloggad' });
+  });
 });
 
 client.login(process.env.DISCORD_TOKEN);
 
 client.on(Events.ClientReady, (readyClient) => {
   console.log(`%cBotten är online som ${readyClient.user.tag}`, css.success);
+  client.user.setPresence({
+    activities: [
+      { name: `Samlar data om regeringen`, type: ActivityType.Custom },
+    ],
+  });
   fetchAllMessages(process.env.DISCORD_CHANNEL_ID_CITAT_DEPARTEMENTET).then(
     (messages) => {
       filteredMessages = messages
@@ -645,12 +676,41 @@ client.on(Events.MessageCreate, (message) => {
   }
 });
 
-client.on(
-  Events.activityUpdate,
-  (oldActivity, newActivity, activityType, activity) => {
-    console.log(`%c${oldActivity} -> ${newActivity}`, css.information);
-  }
-)
+// client.on(Events.PresenceUpdate, (oldActivity, newActivity) => {
+//   let started;
+//   if (oldActivity.activities.length === 0) {
+//     console.log(`%cBörjade: ${newActivity.activities[0]}`, css.information);
+//     started = true;
+//   } else {
+//     console.log(`%cSlutade: ${oldActivity.activities[0]}`, css.information);
+//     started = false;
+//   }
+//   db.query('SELECT * FROM activities', (err, result) => {
+//     if (err) {
+//       console.error(`%c${err}`, css.error);
+//       return;
+//     }
+//     const dbActivities = result.map((activity) => activity.activity);
+//     if (!dbActivities.includes(newActivity.activities[0])) {
+//       db.query(
+//         'INSERT INTO activities SET?',
+//         {
+//           activity: newActivity.activities[0],
+//         },
+//         (err, result) => {
+//           if (err) {
+//             console.error(`%c${err}`, css.error);
+//             return;
+//           }
+//           console.log(
+//             `%cAktivitet inlagd: ${newActivity.activities[0]}`,
+//             css.information
+//           );
+//         }
+//       );
+//     }
+//   });
+// });
 
 const port = 4000;
 
