@@ -676,41 +676,43 @@ client.on(Events.MessageCreate, (message) => {
   }
 });
 
-// client.on(Events.PresenceUpdate, (oldActivity, newActivity) => {
-//   let started;
-//   if (oldActivity.activities.length === 0) {
-//     console.log(`%cBörjade: ${newActivity.activities[0]}`, css.information);
-//     started = true;
-//   } else {
-//     console.log(`%cSlutade: ${oldActivity.activities[0]}`, css.information);
-//     started = false;
-//   }
-//   db.query('SELECT * FROM activities', (err, result) => {
-//     if (err) {
-//       console.error(`%c${err}`, css.error);
-//       return;
-//     }
-//     const dbActivities = result.map((activity) => activity.activity);
-//     if (!dbActivities.includes(newActivity.activities[0])) {
-//       db.query(
-//         'INSERT INTO activities SET?',
-//         {
-//           activity: newActivity.activities[0],
-//         },
-//         (err, result) => {
-//           if (err) {
-//             console.error(`%c${err}`, css.error);
-//             return;
-//           }
-//           console.log(
-//             `%cAktivitet inlagd: ${newActivity.activities[0]}`,
-//             css.information
-//           );
-//         }
-//       );
-//     }
-//   });
-// });
+client.on(Events.PresenceUpdate, (oldActivity, newActivity) => {
+  console.log(oldActivity.activities);
+  console.log(newActivity.activities);
+  // let started;
+  // if (oldActivity.activities.length === 0) {
+  //   console.log(`%cBörjade: ${newActivity.activities[0]}`, css.information);
+  //   started = true;
+  // } else {
+  //   console.log(`%cSlutade: ${oldActivity.activities[0]}`, css.information);
+  //   started = false;
+  // }
+  // db.query('SELECT * FROM activities', (err, result) => {
+  //   if (err) {
+  //     console.error(`%c${err}`, css.error);
+  //     return;
+  //   }
+  //   const dbActivities = result.map((activity) => activity.activity);
+  //   if (!dbActivities.includes(newActivity.activities[0])) {
+  //     db.query(
+  //       'INSERT INTO activities SET?',
+  //       {
+  //         activity: newActivity.activities[0],
+  //       },
+  //       (err, result) => {
+  //         if (err) {
+  //           console.error(`%c${err}`, css.error);
+  //           return;
+  //         }
+  //         console.log(
+  //           `%cAktivitet inlagd: ${newActivity.activities[0]}`,
+  //           css.information
+  //         );
+  //       }
+  //     );
+  //   }
+  // });
+});
 
 const port = 4000;
 
