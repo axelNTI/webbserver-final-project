@@ -676,42 +676,73 @@ client.on(Events.MessageCreate, (message) => {
   }
 });
 
+const activities = {};
+
 client.on(Events.PresenceUpdate, (oldActivity, newActivity) => {
-  console.log(oldActivity.activities);
-  console.log(newActivity.activities);
-  // let started;
-  // if (oldActivity.activities.length === 0) {
-  //   console.log(`%cBörjade: ${newActivity.activities[0]}`, css.information);
-  //   started = true;
-  // } else {
-  //   console.log(`%cSlutade: ${oldActivity.activities[0]}`, css.information);
-  //   started = false;
-  // }
-  // db.query('SELECT * FROM activities', (err, result) => {
-  //   if (err) {
-  //     console.error(`%c${err}`, css.error);
-  //     return;
-  //   }
-  //   const dbActivities = result.map((activity) => activity.activity);
-  //   if (!dbActivities.includes(newActivity.activities[0])) {
-  //     db.query(
-  //       'INSERT INTO activities SET?',
-  //       {
-  //         activity: newActivity.activities[0],
-  //       },
-  //       (err, result) => {
-  //         if (err) {
-  //           console.error(`%c${err}`, css.error);
-  //           return;
-  //         }
-  //         console.log(
-  //           `%cAktivitet inlagd: ${newActivity.activities[0]}`,
-  //           css.information
-  //         );
-  //       }
-  //     );
-  //   }
-  // });
+  oldActivity.activities.forEach((activity) => {
+    // Check if the nested activity exists in the activities object
+    if (
+      activities.hasOwnProperty(oldActivity.userId) &&
+      activities[oldActivity.userId].hasOwnProperty(activity.name)
+    ) {
+      const time = new Date().getTime() - activity.createdTimestamp;
+      db.query(
+        'SELECT * FROM activities WHERE name = ?',
+        [activity.name],
+        (err, result) => {
+          if (err) {
+            console.error(`%c${err}`, css.error);
+            return;
+          }
+          if (result.length === 0) {
+            db.query(
+              'INSERT INTO activities SET?',
+              {
+                name: activity.name,
+                time: time,
+              },
+              (err, result) => {
+                if (err) {
+                  console.error(`%c${err}`, css.error);
+                  return;
+                }
+              }
+            );
+          } else {
+            db.query(
+              'UPDATE activities SET time = time + ? WHERE name = ?',
+              [time, activity.name],
+              (err, result) => {
+                if (err) {
+                  console.error(`%c${err}`, css.error);
+                  return;
+                }
+              }
+            );
+          }
+        }
+      );
+    }
+  });
+
+  if (!activities.hasOwnProperty(newActivity.userId)) {
+    activities[newActivity.userId] = {};
+  }
+  newActivity.activities.forEach((activity) => {
+    let set = {};
+    if (activity.name === 'Spotify') {
+      set = {
+        name: activity.name,
+        artist: activity.state,
+        song: activity.details,
+      };
+    } else {
+      set = {
+        name: activity.name,
+      };
+    }
+    activities[newActivity.userId][activity.name] = set;
+  });
 });
 
 const port = 4000;
