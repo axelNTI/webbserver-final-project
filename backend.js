@@ -29,7 +29,7 @@ const css = {
 
 const app = express();
 app.set('view engine', 'hbs');
-dotenv.config({ path: '../.env' });
+dotenv.config({ path: '../webbserver-final-project-private/.env' });
 
 app.use(
   session({
