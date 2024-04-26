@@ -680,7 +680,6 @@ const activities = {};
 
 client.on(Events.PresenceUpdate, (oldActivity, newActivity) => {
   oldActivity.activities.forEach((activity) => {
-    // Check if the nested activity exists in the activities object
     if (
       activities.hasOwnProperty(oldActivity.userId) &&
       activities[oldActivity.userId].hasOwnProperty(activity.name)
@@ -720,6 +719,45 @@ client.on(Events.PresenceUpdate, (oldActivity, newActivity) => {
               }
             );
           }
+          if (activity.name === 'Spotify') {
+            db.query(
+              'SELECT * FROM spotify WHERE artist = ? AND song = ?',
+              [activity.state, activity.details],
+              (err, result) => {
+                if (err) {
+                  console.error(`%c${err}`, css.error);
+                  return;
+                }
+                if (result.length === 0) {
+                  db.query(
+                    'INSERT INTO spotify SET?',
+                    {
+                      artist: activity.state,
+                      song: activity.details,
+                      time: time,
+                    },
+                    (err, result) => {
+                      if (err) {
+                        console.error(`%c${err}`, css.error);
+                        return;
+                      }
+                    }
+                  );
+                } else {
+                  db.query(
+                    'UPDATE spotify SET time = time + ? WHERE artist = ? AND song = ?',
+                    [time, activity.state, activity.details],
+                    (err, result) => {
+                      if (err) {
+                        console.error(`%c${err}`, css.error);
+                        return;
+                      }
+                    }
+                  );
+                }
+              }
+            );
+          }
         }
       );
     }
@@ -729,19 +767,7 @@ client.on(Events.PresenceUpdate, (oldActivity, newActivity) => {
     activities[newActivity.userId] = {};
   }
   newActivity.activities.forEach((activity) => {
-    let set = {};
-    if (activity.name === 'Spotify') {
-      set = {
-        name: activity.name,
-        artist: activity.state,
-        song: activity.details,
-      };
-    } else {
-      set = {
-        name: activity.name,
-      };
-    }
-    activities[newActivity.userId][activity.name] = set;
+    activities[newActivity.userId][activity.name] = activity.name;
   });
 });
 
