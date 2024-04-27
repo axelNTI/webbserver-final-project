@@ -191,7 +191,10 @@ app.get('/citat', (req, res) => {
     //       }, {})
     //   ).sort(([, a], [, b]) => b - a)
     // );
-    res.render('citat', { citat: result });
+
+    res.render('citat', {
+      citat: result,
+    });
   });
 });
 
@@ -201,7 +204,35 @@ app.get('/screenshots', (req, res) => {
       console.error(`%c${err}`, css.error);
       return res.status(500).json({ message: 'Server error' });
     }
+
     res.render('screenshots', { screenshots: result });
+  });
+});
+
+app.get('/activity', (req, res) => {
+  db.query('SELECT * FROM activities', (err, result) => {
+    if (err) {
+      console.error(`%c${err}`, css.error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+
+    const activities = result
+      .sort((a, b) => b.time - a.time)
+      .map((activity) => {
+        // convert milliseconds to hours, minutes and seconds
+        const hours = Math.floor(activity.time / 3600000);
+        const minutes = Math.floor((activity.time % 3600000) / 60000);
+        const seconds = Math.floor((activity.time % 60000) / 1000);
+        return {
+          name: activity.name,
+          time: `${hours}h ${minutes}m ${seconds}s`,
+        };
+      });
+    res.render('activity', {
+      activities: activities,
+      user: req.session,
+      query: req.query,
+    });
   });
 });
 
@@ -676,99 +707,94 @@ client.on(Events.MessageCreate, (message) => {
   }
 });
 
-const activities = {};
-
-client.on(Events.PresenceUpdate, (oldActivity, newActivity) => {
-  oldActivity.activities.forEach((activity) => {
-    if (
-      activities.hasOwnProperty(oldActivity.userId) &&
-      activities[oldActivity.userId].hasOwnProperty(activity.name)
-    ) {
-      const time = new Date().getTime() - activity.createdTimestamp;
-      db.query(
-        'SELECT * FROM activities WHERE name = ?',
-        [activity.name],
-        (err, result) => {
-          if (err) {
-            console.error(`%c${err}`, css.error);
-            return;
-          }
-          if (result.length === 0) {
-            db.query(
-              'INSERT INTO activities SET?',
-              {
-                name: activity.name,
-                time: time,
-              },
-              (err, result) => {
-                if (err) {
-                  console.error(`%c${err}`, css.error);
-                  return;
+client.on(Events.PresenceUpdate, (oldActivities, newActivities) => {
+  if (oldActivities && oldActivities.activities) {
+    oldActivities.activities
+      .filter(
+        (activity) =>
+          !newActivities.activities
+            .map((new_activity) => new_activity.createdTimestamp)
+            .includes(activity.createdTimestamp)
+      )
+      .forEach((activity) => {
+        const time = new Date().getTime() - activity.createdTimestamp;
+        db.query(
+          'SELECT * FROM activities WHERE name = ?',
+          [activity.name],
+          (err, result) => {
+            if (err) {
+              console.error(`%c${err}`, css.error);
+              return;
+            }
+            if (result.length === 0) {
+              db.query(
+                'INSERT INTO activities SET?',
+                {
+                  name: activity.name,
+                  time: time,
+                },
+                (err, result) => {
+                  if (err) {
+                    console.error(`%c${err}`, css.error);
+                    return;
+                  }
                 }
-              }
-            );
-          } else {
-            db.query(
-              'UPDATE activities SET time = time + ? WHERE name = ?',
-              [time, activity.name],
-              (err, result) => {
-                if (err) {
-                  console.error(`%c${err}`, css.error);
-                  return;
+              );
+            } else {
+              db.query(
+                'UPDATE activities SET time = time + ? WHERE name = ?',
+                [time, activity.name],
+                (err, result) => {
+                  if (err) {
+                    console.error(`%c${err}`, css.error);
+                    return;
+                  }
                 }
-              }
-            );
-          }
-          if (activity.name === 'Spotify') {
-            db.query(
-              'SELECT * FROM spotify WHERE artist = ? AND song = ?',
-              [activity.state, activity.details],
-              (err, result) => {
-                if (err) {
-                  console.error(`%c${err}`, css.error);
-                  return;
-                }
-                if (result.length === 0) {
-                  db.query(
-                    'INSERT INTO spotify SET?',
-                    {
-                      artist: activity.state,
-                      song: activity.details,
-                      time: time,
-                    },
-                    (err, result) => {
-                      if (err) {
-                        console.error(`%c${err}`, css.error);
-                        return;
+              );
+            }
+            if (activity.name === 'Spotify') {
+              db.query(
+                'SELECT * FROM spotify WHERE song = ? AND artist = ?',
+                [activity.details, activity.state],
+                (err, result) => {
+                  if (err) {
+                    console.error(`%c${err}`, css.error);
+                    return;
+                  }
+                  if (result.length === 0) {
+                    db.query(
+                      'INSERT INTO spotify SET?',
+                      {
+                        song: activity.details,
+                        artist: activity.state,
+                        time: time,
+                      },
+                      (err, result) => {
+                        if (err) {
+                          console.error(`%c${err}`, css.error);
+                          return;
+                        }
                       }
-                    }
-                  );
-                } else {
-                  db.query(
-                    'UPDATE spotify SET time = time + ? WHERE artist = ? AND song = ?',
-                    [time, activity.state, activity.details],
-                    (err, result) => {
-                      if (err) {
-                        console.error(`%c${err}`, css.error);
-                        return;
+                    );
+                  } else {
+                    db.query(
+                      'UPDATE spotify SET time = time + ? WHERE song = ? AND artist = ?',
+                      [time, activity.details, activity.state],
+                      (err, result) => {
+                        if (err) {
+                          console.error(`%c${err}`, css.error);
+                          return;
+                        }
                       }
-                    }
-                  );
+                    );
+                  }
                 }
-              }
-            );
+              );
+            }
           }
-        }
-      );
-    }
-  });
-
-  if (!activities.hasOwnProperty(newActivity.userId)) {
-    activities[newActivity.userId] = {};
+        );
+      });
   }
-  newActivity.activities.forEach((activity) => {
-    activities[newActivity.userId][activity.name] = activity.name;
-  });
 });
 
 const port = 4000;
