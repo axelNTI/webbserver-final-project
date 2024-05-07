@@ -27,6 +27,8 @@ const css = {
   information: 'color: #1E90FF;',
 };
 
+const tables = ['users', 'citat', 'screenshots', 'activities', 'spotify'];
+
 const app = express();
 app.set('view engine', 'hbs');
 dotenv.config({ path: '../webbserver-final-project-private/.env' });
@@ -131,6 +133,16 @@ db.connect((err) => {
   } else {
     console.log('%cAnsluten till MySQL', css.success);
   }
+});
+
+tables.forEach((table) => {
+  db.query('ALTER TABLE ? IMPORT TABLESPACE', [table], (err, result) => {
+    if (err) {
+      console.log(`%cTablespace already exists for ${table}`, css.success);
+      return;
+    }
+    console.log(`%cTablespace has been added to ${table}`, css.warning);
+  });
 });
 
 app.get('/', (req, res) => {
@@ -717,7 +729,11 @@ client.on(Events.PresenceUpdate, (oldActivities, newActivities) => {
             .includes(activity.createdTimestamp)
       )
       .forEach((activity) => {
-        const time = new Date().getTime() - activity.createdTimestamp;
+        // Time kan bli negativt på grund av okänd anledning. Därför används Math.max för att undvika negativa värden.
+        const time = Math.max(
+          new Date().getTime() - activity.createdTimestamp,
+          0
+        );
         db.query(
           'SELECT * FROM activities WHERE name = ?',
           [activity.name],
