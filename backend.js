@@ -1,24 +1,24 @@
-const express = require('express');
-const mysql = require('mysql2');
-const dotenv = require('dotenv');
-const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
-const nodemailer = require('nodemailer');
+const express = require('express'); // MIT
+const mysql = require('mysql2'); // MIT
+const dotenv = require('dotenv'); // BSD-2-Clause
+const bcrypt = require('bcryptjs'); // MIT
+const crypto = require('crypto'); // ISC
+const nodemailer = require('nodemailer'); // MIT-0
 const {
   Client,
   Events,
   GatewayIntentBits,
   ActivityType,
-} = require('discord.js');
-const { SpotifyApi } = require('@spotify/web-api-ts-sdk');
-const { read } = require('fs');
-const session = require('express-session');
-const { request } = require('undici');
-const Handlebars = require('handlebars');
-const parseurl = require('parseurl');
-const escapeHtml = require('escape-html');
-const WebSocket = require('ws');
-const { start } = require('repl');
+} = require('discord.js'); // Apache-2.0
+const { SpotifyApi } = require('@spotify/web-api-ts-sdk'); // Apache
+const { read } = require('fs'); // ISC
+const session = require('express-session'); // MIT
+const { request } = require('undici'); // MIT
+const Handlebars = require('handlebars'); // MIT
+const parseurl = require('parseurl'); // MIT
+const escapeHtml = require('escape-html'); // MIT
+const WebSocket = require('ws'); // MIT
+const hbs = require('hbs'); // MIT
 
 const css = {
   error: 'color: #FF4422;',
@@ -135,10 +135,15 @@ db.connect((err) => {
   }
 });
 
+// Jag använder en annan repository för att spara databasen. Detta kan leda till en error angående tablespaces. Denna kod löser problemet.
 tables.forEach((table) => {
-  db.query('ALTER TABLE ? IMPORT TABLESPACE', [table], (err, result) => {
-    if (err) {
+  db.query(`ALTER TABLE ${table} IMPORT TABLESPACE`, (err, result) => {
+    if (err && err.code === 'ER_TABLESPACE_EXISTS') {
       console.log(`%cTablespace already exists for ${table}`, css.success);
+      return;
+    }
+    if (err) {
+      console.error(`%c${err}`, css.error);
       return;
     }
     console.log(`%cTablespace has been added to ${table}`, css.warning);
@@ -171,6 +176,7 @@ app.get('/citat', (req, res) => {
       console.error(`%c${err}`, css.error);
       return res.status(500).json({ message: 'Server error' });
     }
+    console.log(result);
     // res.json(result);
     // const quoted = filteredMessages.flatMap((message) => {
     //   const individuals = [];
@@ -222,26 +228,46 @@ app.get('/screenshots', (req, res) => {
 });
 
 app.get('/activity', (req, res) => {
-  db.query('SELECT * FROM activities', (err, result) => {
+  db.query('SELECT * FROM activities ORDER BY time DESC ', (err, result) => {
     if (err) {
       console.error(`%c${err}`, css.error);
       return res.status(500).json({ message: 'Server error' });
     }
-
-    const activities = result
-      .sort((a, b) => b.time - a.time)
-      .map((activity) => {
-        // convert milliseconds to hours, minutes and seconds
-        const hours = Math.floor(activity.time / 3600000);
-        const minutes = Math.floor((activity.time % 3600000) / 60000);
-        const seconds = Math.floor((activity.time % 60000) / 1000);
-        return {
-          name: activity.name,
-          time: `${hours}h ${minutes}m ${seconds}s`,
-        };
-      });
+    const activities = result.map((activity) => {
+      const hours = Math.floor(activity.time / 3600000);
+      const minutes = Math.floor((activity.time % 3600000) / 60000);
+      const seconds = Math.floor((activity.time % 60000) / 1000);
+      return {
+        name: activity.name,
+        time: `${hours}h ${minutes}m ${seconds}s`,
+      };
+    });
     res.render('activity', {
       activities: activities,
+      user: req.session,
+      query: req.query,
+    });
+  });
+});
+
+app.get('/spotify', (req, res) => {
+  db.query('SELECT * FROM spotify ORDER BY time DESC ', (err, result) => {
+    if (err) {
+      console.error(`%c${err}`, css.error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+    const spotify = result.map((song) => {
+      const hours = Math.floor(song.time / 3600000);
+      const minutes = Math.floor((song.time % 3600000) / 60000);
+      const seconds = Math.floor((song.time % 60000) / 1000);
+      return {
+        song: song.song,
+        artist: song.artist,
+        time: `${hours}h ${minutes}m ${seconds}s`,
+      };
+    });
+    res.render('spotify', {
+      spotify: spotify,
       user: req.session,
       query: req.query,
     });
@@ -569,6 +595,7 @@ app.post('/auth/discord', async (req, res) => {
     console.log(`%cInloggad: ${displayname}`, css.success);
     return res.status(200).json({ message: 'Inloggad' });
   });
+  db.query();
 });
 
 client.login(process.env.DISCORD_TOKEN);
@@ -720,6 +747,7 @@ client.on(Events.MessageCreate, (message) => {
 });
 
 client.on(Events.PresenceUpdate, (oldActivities, newActivities) => {
+  // TODO: Fixa att databasen uppdateras om man har en låt på repeat.
   if (oldActivities && oldActivities.activities) {
     oldActivities.activities
       .filter(

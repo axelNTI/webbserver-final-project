@@ -20,7 +20,17 @@
     <h1>Quotes</h1>
     <ul>
       {{#each citat}}
-        <li>{{this.quote}}</li>
+        <li id='{{this.citatID}}'>{{this.quote}}</li>
+        <button
+          class='btn btn-primary'
+          onclick='editCitat({{this.citatID}}, "{{this.quote}}")'
+        ></button>
+        <button
+          class='btn btn-danger'
+          onclick='editCitat({{this.citatID}}, "{{this.quote}}")'
+        >
+
+        </button>
         <br />
       {{/each}}
     </ul>
