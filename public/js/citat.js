@@ -10,5 +10,13 @@ $(function () {
         '</li><br>'
     );
   };
-  $
+  $('button').on('click', function () {
+    const id = $(this).parent().attr('id');
+    const button_class = $(this).attr('class');
+    if (button_class.includes('upvote')) {
+      ws.send(JSON.stringify({ id: id, type: 'upvote' }));
+    } else {
+      ws.send(JSON.stringify({ id: id, type: 'downvote' }));
+    }
+  });
 });

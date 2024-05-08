@@ -31,7 +31,9 @@
       </h1>
     </header>
     <section class='d-flex justify-content-end'>
-      <aside class='text-center border border-primary-subtle'>
+      <aside
+        class='border border-primary-subtle rounded w-15 d-flex flex-column align-items-center'
+      >
         {{#if user.loggedIn}}
           {{#if user.linkedDiscord}}
             <img src='{{user.avatar}}' alt='' />

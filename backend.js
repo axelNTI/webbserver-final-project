@@ -27,8 +27,6 @@ const css = {
   information: 'color: #1E90FF;',
 };
 
-const tables = ['users', 'citat', 'screenshots', 'activities', 'spotify'];
-
 const app = express();
 app.set('view engine', 'hbs');
 dotenv.config({ path: '../webbserver-final-project-private/.env' });
@@ -49,7 +47,38 @@ wss.on('connection', function connection(ws, req) {
   const pageId = req.url.split('=')[1];
   connections.set(ws, pageId);
   ws.on('message', function incoming(message) {
+    message = JSON.parse(message);
     console.log(`%cReceived message: ${message}`, css.information);
+    switch (message.type) {
+      case 'upvote':
+        console.log('%cUpvote', css.success);
+        db.query(
+          'UPDATE citat SET upvotes = upvotes + 1 WHERE citatID = ?',
+          [message.id],
+          (err, result) => {
+            if (err) {
+              console.error(`%c${err}`, css.error);
+              return;
+            }
+          }
+        );
+        break;
+      case 'downvote':
+        console.log('%cDownvote', css.success);
+        db.query(
+          'UPDATE citat SET downvotes = downvotes + 1 WHERE id = ?',
+          [message.id],
+          (err, result) => {
+            if (err) {
+              console.error(`%c${err}`, css.error);
+              return;
+            }
+          }
+        );
+        break;
+      default:
+        console.log('%cUnknown message', css.warning);
+    }
   });
   ws.on('close', function () {
     connections.delete(ws);
@@ -106,7 +135,7 @@ const sqlInjectionRegex =
 const newLineRegex = /\n/;
 
 // Regex for finding the string between a dash and the first of the following: [a new line or a comma or the end of the string or the string "om"]
-const userRegex = /(?<=["”].*["”] -).*?(?=\n|,| om| till| medan| som|$)/;
+const userRegex = /(?<=["”“].*["”“] -).*?(?=\n|,| om| till| medan| som|$)/;
 
 const db = mysql.createConnection({
   host: process.env.DATABASE_HOST,
@@ -132,22 +161,33 @@ db.connect((err) => {
     console.error(`%c${err}`, css.error);
   } else {
     console.log('%cAnsluten till MySQL', css.success);
-  }
-});
 
-// Jag använder en annan repository för att spara databasen. Detta kan leda till en error angående tablespaces. Denna kod löser problemet.
-tables.forEach((table) => {
-  db.query(`ALTER TABLE ${table} IMPORT TABLESPACE`, (err, result) => {
-    if (err && err.code === 'ER_TABLESPACE_EXISTS') {
-      console.log(`%cTablespace already exists for ${table}`, css.success);
-      return;
-    }
-    if (err) {
-      console.error(`%c${err}`, css.error);
-      return;
-    }
-    console.log(`%cTablespace has been added to ${table}`, css.warning);
-  });
+    // Jag använder en annan repository för att spara databasen. Detta kan leda till en error angående tablespaces. Denna kod löser problemet.
+    db.query('SHOW TABLES', (err, result) => {
+      if (err) {
+        console.error(`%c${err}`, css.error);
+        return;
+      }
+      result
+        .map((table) => table.Tables_in_regeringen)
+        .forEach((table) => {
+          db.query(`ALTER TABLE ${table} IMPORT TABLESPACE`, (err, result) => {
+            if (err && err.code === 'ER_TABLESPACE_EXISTS') {
+              console.log(
+                `%cTablespace already exists for ${table}`,
+                css.success
+              );
+              return;
+            }
+            if (err) {
+              console.error(`%c${err}`, css.error);
+              return;
+            }
+            console.log(`%cTablespace has been added to ${table}`, css.warning);
+          });
+        });
+    });
+  }
 });
 
 app.get('/', (req, res) => {
@@ -176,7 +216,6 @@ app.get('/citat', (req, res) => {
       console.error(`%c${err}`, css.error);
       return res.status(500).json({ message: 'Server error' });
     }
-    console.log(result);
     // res.json(result);
     // const quoted = filteredMessages.flatMap((message) => {
     //   const individuals = [];
@@ -209,7 +248,6 @@ app.get('/citat', (req, res) => {
     //       }, {})
     //   ).sort(([, a], [, b]) => b - a)
     // );
-
     res.render('citat', {
       citat: result,
     });
