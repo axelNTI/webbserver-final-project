@@ -312,6 +312,44 @@ app.get('/spotify', (req, res) => {
   });
 });
 
+app.get('/verify', (req, res) => {
+  const { token } = req.query;
+  if (!token) {
+    return res.status(500).json({ message: 'Token saknas' });
+  }
+  db.query(
+    'UPDATE users SET email_verified = 1 WHERE token = ?',
+    [token],
+    (err, result) => {
+      if (err) {
+        console.error(`%c${err}`, css.error);
+        return res.status(500).json({ message: 'Server error' });
+      }
+      console.log(`%cUser email verified: ${result}`, css.information);
+      return res.status(200).json({ message: 'Email verifierad' });
+    }
+  );
+});
+
+app.get('/delete', (req, res) => {
+  const { token } = req.query;
+  if (!token) {
+    return res.status(500).json({ message: 'Token saknas' });
+  }
+  db.query('DELETE FROM users WHERE token = ?', [token], (err, result) => {
+    if (err) {
+      console.error(`%c${err}`, css.error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+    console.log(`%cUser deleted: ${result}`, css.information);
+    return res.status(200).json({ message: 'Konto raderat' });
+  });
+});
+
+app.get('/auth', (req, res) => {
+  res.render('auth', { user: req.session, query: req.query });
+});
+
 app.get('/404', (req, res) => {
   res.render('404', { user: req.session, query: req.query });
 });
@@ -442,44 +480,6 @@ app.post('/auth/register', (req, res) => {
       });
     });
   });
-});
-
-app.get('/verify', (req, res) => {
-  const { token } = req.query;
-  if (!token) {
-    return res.status(500).json({ message: 'Token saknas' });
-  }
-  db.query(
-    'UPDATE users SET email_verified = 1 WHERE token = ?',
-    [token],
-    (err, result) => {
-      if (err) {
-        console.error(`%c${err}`, css.error);
-        return res.status(500).json({ message: 'Server error' });
-      }
-      console.log(`%cUser email verified: ${result}`, css.information);
-      return res.status(200).json({ message: 'Email verifierad' });
-    }
-  );
-});
-
-app.get('/delete', (req, res) => {
-  const { token } = req.query;
-  if (!token) {
-    return res.status(500).json({ message: 'Token saknas' });
-  }
-  db.query('DELETE FROM users WHERE token = ?', [token], (err, result) => {
-    if (err) {
-      console.error(`%c${err}`, css.error);
-      return res.status(500).json({ message: 'Server error' });
-    }
-    console.log(`%cUser deleted: ${result}`, css.information);
-    return res.status(200).json({ message: 'Konto raderat' });
-  });
-});
-
-app.get('/auth', (req, res) => {
-  res.render('auth', { user: req.session, query: req.query });
 });
 
 app.post('/auth/login', (req, res) => {
@@ -633,7 +633,7 @@ app.post('/auth/discord', async (req, res) => {
     console.log(`%cInloggad: ${displayname}`, css.success);
     return res.status(200).json({ message: 'Inloggad' });
   });
-  db.query();
+  // db.query();
 });
 
 client.login(process.env.DISCORD_TOKEN);
