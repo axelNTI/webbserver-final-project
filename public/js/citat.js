@@ -1,5 +1,16 @@
 $(function () {
   const ws = new WebSocket('ws://localhost:8080?=citat');
+  let user;
+  $.ajax({
+    url: '/auth/userdata',
+    method: 'GET',
+    success: function (data) {
+      user = data;
+    },
+    error: function (err) {
+      console.error('Error fetching user data:', err);
+    },
+  });
   $('li').each(function () {
     $(this).html($(this).text().replaceAll(/\n/g, '<br>'));
   });
@@ -13,14 +24,15 @@ $(function () {
   $('button').on('click', function () {
     const id = $(this).parent().attr('id');
     const button_class = $(this).attr('class');
-    if (!$('.user').val().loggedIn) {
+    console.log(typeof user);
+    if (!user.loggedIn) {
       alert('You must be logged in to vote');
       return;
     }
     if (button_class.includes('upvote')) {
-      ws.send(JSON.stringify({ id: id, type: 'upvote' }));
+      ws.send(JSON.stringify({ id: id, type: 'upvote', user: userID}));
     } else {
-      ws.send(JSON.stringify({ id: id, type: 'downvote' }));
+      ws.send(JSON.stringify({ id: id, type: 'downvote', user: userID}));
     }
   });
 });

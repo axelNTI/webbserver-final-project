@@ -49,30 +49,112 @@ wss.on('connection', function connection(ws, req) {
   connections.set(ws, pageId);
   ws.on('message', function incoming(message) {
     message = JSON.parse(message);
-    console.log(`%cReceived message: ${message}`, css.information);
+    console.log(`%cReceived message: ${message.type}`, css.information);
     switch (message.type) {
       case 'upvote':
-        console.log('%cUpvote', css.success);
+        console.log('%cUpvote', css.information);
         db.query(
-          'UPDATE citat SET upvotes = upvotes + 1 WHERE citatID = ?',
-          [message.id],
+          'SELECT * FROM uservotes WHERE userID = ? AND quoteID = ?',
+          [message.userID, message.id],
           (err, result) => {
             if (err) {
               console.error(`%c${err}`, css.error);
               return;
             }
+            if (result.length > 0 && result.type === 'downvote') {
+              db.query(
+                'UPDATE citat SET upvotes = upvotes + 1, downvotes = downvotes - 1 WHERE id = ?; SET type = ? WHERE userID = ? AND quoteID = ?',
+                [message.id, 'upvote', message.userID, message.id],
+                (err, result) => {
+                  if (err) {
+                    console.error(`%c${err}`, css.error);
+                    return;
+                  }
+                }
+              );
+            } else if (result.length > 0 && result.type === 'upvote') {
+              db.query(
+                'UPDATE citat SET upvotes = upvotes - 1 WHERE id = ?; DELETE FROM uservotes WHERE userID = ? AND quoteID = ?',
+                [message.id, req.session.userID, message.id],
+                (err, result) => {
+                  if (err) {
+                    console.error(`%c${err}`, css.error);
+                    return;
+                  }
+                }
+              );
+            } else if (result.length === 0) {
+              db.query(
+                'UPDATE citat SET upvotes = upvotes + 1 WHERE id = ?; INSERT INTO uservotes SET?',
+                [
+                  message.id,
+                  {
+                    userID: req.session.userID,
+                    quoteID: message.id,
+                    type: 'upvote',
+                  },
+                ],
+                (err, result) => {
+                  if (err) {
+                    console.error(`%c${err}`, css.error);
+                    return;
+                  }
+                }
+              );
+            }
           }
         );
         break;
       case 'downvote':
-        console.log('%cDownvote', css.success);
+        console.log('%cDownvote', css.information);
         db.query(
-          'UPDATE citat SET downvotes = downvotes + 1 WHERE id = ?',
-          [message.id],
+          'SELECT * FROM uservotes WHERE userID = ? AND quoteID = ?',
+          [req.session.userID, message.id],
           (err, result) => {
             if (err) {
               console.error(`%c${err}`, css.error);
               return;
+            }
+            if (result.length > 0 && result.type === 'upvote') {
+              db.query(
+                'UPDATE citat SET upvotes = upvotes - 1, downvotes = downvotes + 1 WHERE id = ?; SET type = ? WHERE userID = ? AND quoteID = ?',
+                [message.id, 'downvote', req.session.userID, message.id],
+                (err, result) => {
+                  if (err) {
+                    console.error(`%c${err}`, css.error);
+                    return;
+                  }
+                }
+              );
+            } else if (result.length > 0 && result.type === 'downvote') {
+              db.query(
+                'UPDATE citat SET downvotes = downvotes - 1 WHERE id = ?; DELETE FROM uservotes WHERE userID = ? AND quoteID = ?',
+                [message.id, req.session.userID, message.id],
+                (err, result) => {
+                  if (err) {
+                    console.error(`%c${err}`, css.error);
+                    return;
+                  }
+                }
+              );
+            } else if (result.length === 0) {
+              db.query(
+                'UPDATE citat SET downvotes = downvotes + 1 WHERE id = ?; INSERT INTO uservotes SET?',
+                [
+                  message.id,
+                  {
+                    userID: req.session.userID,
+                    quoteID: message.id,
+                    type: 'downvote',
+                  },
+                ],
+                (err, result) => {
+                  if (err) {
+                    console.error(`%c${err}`, css.error);
+                    return;
+                  }
+                }
+              );
             }
           }
         );
@@ -88,11 +170,6 @@ wss.on('connection', function connection(ws, req) {
     console.error(`%c${error}`, css.error);
   });
 });
-
-function isAuthenticated(req, res, next) {
-  if (req.session.user) next();
-  else next('route');
-}
 
 const client = new Client({
   intents: [
@@ -217,44 +294,57 @@ app.get('/citat', (req, res) => {
       console.error(`%c${err}`, css.error);
       return res.status(500).json({ message: 'Server error' });
     }
-    console.log(req.session);
-    // res.json(result);
-    // const quoted = filteredMessages.flatMap((message) => {
-    //   const individuals = [];
-    //   const lines = message.content.split(newLineRegex);
-    //   lines.forEach((line) => {
-    //     const matches = line.match(userRegex);
-    //     if (matches) {
-    //       individuals.push(...matches.map((match) => match.trim()));
-    //     } else {
-    //       console.log(`%c${line}`, css.error);
-    //     }
-    //   });
-    //   return individuals;
-    // });
-    // const quotedCount = Object.fromEntries(
-    //   Object.entries(
-    //     quoted.reduce((acc, user) => {
-    //       acc[user] = (acc[user] || 0) + 1;
-    //       return acc;
-    //     }, {})
-    //   ).sort(([, a], [, b]) => b - a)
-    // );
-    // const messageCount = Object.fromEntries(
-    //   Object.entries(
-    //     filteredMessages
-    //       .map((message) => message.author)
-    //       .reduce((acc, user) => {
-    //         acc[user.displayName] = (acc[user.displayName] || 0) + 1;
-    //         return acc;
-    //       }, {})
-    //   ).sort(([, a], [, b]) => b - a)
-    // );
-    res.render('citat', {
-      citat: result,
-      user: req.session,
-      query: req.query,
-    });
+    const citat = result;
+    db.query(
+      'SELECT * FROM uservotes WHERE userID = ?',
+      [req.session.userID],
+      (err, result) => {
+        if (err) {
+          console.error(`%c${err}`, css.error);
+          return res.status(500).json({ message: 'Server error' });
+        }
+        const userVotes = result.map((vote) => vote.quoteID);
+        console.log(userVotes);
+
+        // res.json(result);
+        // const quoted = filteredMessages.flatMap((message) => {
+        //   const individuals = [];
+        //   const lines = message.content.split(newLineRegex);
+        //   lines.forEach((line) => {
+        //     const matches = line.match(userRegex);
+        //     if (matches) {
+        //       individuals.push(...matches.map((match) => match.trim()));
+        //     } else {
+        //       console.log(`%c${line}`, css.error);
+        //     }
+        //   });
+        //   return individuals;
+        // });
+        // const quotedCount = Object.fromEntries(
+        //   Object.entries(
+        //     quoted.reduce((acc, user) => {
+        //       acc[user] = (acc[user] || 0) + 1;
+        //       return acc;
+        //     }, {})
+        //   ).sort(([, a], [, b]) => b - a)
+        // );
+        // const messageCount = Object.fromEntries(
+        //   Object.entries(
+        //     filteredMessages
+        //       .map((message) => message.author)
+        //       .reduce((acc, user) => {
+        //         acc[user.displayName] = (acc[user.displayName] || 0) + 1;
+        //         return acc;
+        //       }, {})
+        //   ).sort(([, a], [, b]) => b - a)
+        // );
+        res.render('citat', {
+          citat: citat,
+          user: req.session,
+          query: req.query,
+        });
+      }
+    );
   });
 });
 
@@ -360,6 +450,10 @@ app.get('/auth', (req, res) => {
 
 app.get('/404', (req, res) => {
   res.render('404', { user: req.session, query: req.query });
+});
+
+app.get('/auth/userdata', (req, res) => {
+  res.json(req.session);
 });
 
 app.get('*', (req, res) => {
