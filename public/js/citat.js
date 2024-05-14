@@ -13,6 +13,10 @@ $(function () {
   $('button').on('click', function () {
     const id = $(this).parent().attr('id');
     const button_class = $(this).attr('class');
+    if (!$('.user').val().loggedIn) {
+      alert('You must be logged in to vote');
+      return;
+    }
     if (button_class.includes('upvote')) {
       ws.send(JSON.stringify({ id: id, type: 'upvote' }));
     } else {

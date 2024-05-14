@@ -20,6 +20,7 @@ const escapeHtml = require('escape-html'); // MIT
 const WebSocket = require('ws'); // MIT
 const hbs = require('hbs'); // MIT
 
+// Styling for console.log and console.error messages in VS Code
 const css = {
   error: 'color: #FF4422;',
   success: 'color: #00FF7F;',
@@ -216,6 +217,7 @@ app.get('/citat', (req, res) => {
       console.error(`%c${err}`, css.error);
       return res.status(500).json({ message: 'Server error' });
     }
+    console.log(req.session);
     // res.json(result);
     // const quoted = filteredMessages.flatMap((message) => {
     //   const individuals = [];
@@ -250,6 +252,8 @@ app.get('/citat', (req, res) => {
     // );
     res.render('citat', {
       citat: result,
+      user: req.session,
+      query: req.query,
     });
   });
 });
@@ -261,7 +265,11 @@ app.get('/screenshots', (req, res) => {
       return res.status(500).json({ message: 'Server error' });
     }
 
-    res.render('screenshots', { screenshots: result });
+    res.render('screenshots', {
+      screenshots: result,
+      user: req.session,
+      query: req.query,
+    });
   });
 });
 
@@ -701,28 +709,36 @@ client.on(Events.ClientReady, (readyClient) => {
           (message) => !dbQuotes.includes(message.content)
         );
         let newQuotesCount = 0;
+        const promises = [];
         newQuotes.forEach((message) => {
-          db.query(
-            'INSERT INTO citat SET?',
-            {
-              upvotes: 0,
-              downvotes: 0,
-              quote: message.content,
-              discordUsername: message.author.username,
-            },
-            (err, result) => {
-              if (err) {
-                console.error(`%c${err}`, css.error);
-                return;
+          const promise = new Promise((resolve, reject) => {
+            db.query(
+              'INSERT INTO citat SET ?',
+              {
+                upvotes: 0,
+                downvotes: 0,
+                quote: message.content,
+                discordUsername: message.author.username,
+              },
+              (err, result) => {
+                if (err) {
+                  console.error(`%c${err}`, css.error);
+                  reject(err);
+                } else {
+                  newQuotesCount++;
+                  resolve();
+                }
               }
-              newQuotesCount++;
-            }
+            );
+          });
+          promises.push(promise);
+        });
+        Promise.all(promises).then(() => {
+          console.log(
+            `%c${newQuotesCount} av ${newQuotes.length} nya citat inlagda`,
+            css.success
           );
         });
-        console.log(
-          `%c${newQuotesCount} av ${newQuotes.length} nya citat inlagda`,
-          css.success
-        );
       });
     }
   );
