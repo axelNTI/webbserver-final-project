@@ -517,13 +517,36 @@ app.post('/auth/login', (req, res) => {
       }
       req.session.user = name_array_login[index];
       req.session.email = email_array_login[index];
+      req.session.userID = index;
       req.session.loggedIn = true;
       req.session.save((err) => {
         if (err) {
           console.error(`%c${err}`, css.error);
           return res.status(500).json({ message: 'Server error' });
         }
-        console.log(`%cInloggad: ${name}`, css.success);
+        db.query(
+          'SELECT * FROM discordusers WHERE userID = ?',
+          [req.session.userID],
+          (err, result) => {
+            if (err) {
+              console.error(`%c${err}`, css.error);
+              return res.status(500).json({ message: 'Server error' });
+            }
+            if (result.length > 0) {
+              req.session.linkedDiscord = true;
+              req.session.username = result[0].discordUsername;
+              req.session.displayname = result[0].discordDisplayname;
+              req.session.avatar = result[0].discordAvatar;
+              req.session.save((err) => {
+                if (err) {
+                  console.error(`%c${err}`, css.error);
+                  return res.status(500).json({ message: 'Server error' });
+                }
+              });
+            }
+          }
+        );
+        console.log(`%cInloggad: ${name}`, css.information);
         return res.status(200).json({ message: 'Inloggad' });
       });
     }
@@ -612,15 +635,9 @@ app.post('/auth/discord', async (req, res) => {
     },
   });
   const discordUser = await userResult.body.json();
-  console.log(discordUser);
   username = discordUser.username;
   displayname = discordUser.global_name;
   avatar = discordUser.avatar;
-  console.log(
-    `%cKopplat Discord-konto: ${displayname} (${username})`,
-    css.information
-  );
-
   req.session.username = username;
   req.session.displayname = displayname;
   req.session.avatar = `https://cdn.discordapp.com/avatars/${discordUser.id}/${avatar}.png`;
@@ -630,10 +647,24 @@ app.post('/auth/discord', async (req, res) => {
       console.error(`%c${err}`, css.error);
       return res.status(500).json({ message: 'Server error' });
     }
-    console.log(`%cInloggad: ${displayname}`, css.success);
-    return res.status(200).json({ message: 'Inloggad' });
   });
-  // db.query();
+  db.query(
+    'INSERT INTO discordusers SET?',
+    {
+      userID: req.session.userID,
+      discordUsername: username,
+      discordDisplayname: displayname,
+      discordAvatar: `https://cdn.discordapp.com/avatars/${discordUser.id}/${avatar}.png`,
+    },
+    (err, result) => {
+      if (err) {
+        console.error(`%c${err}`, css.error);
+        return;
+      }
+      console.log(`%cDiscord user added: ${result}`, css.information);
+    }
+  );
+  return res.status(200).json({ message: 'Inloggad med Discord' });
 });
 
 client.login(process.env.DISCORD_TOKEN);
@@ -669,6 +700,7 @@ client.on(Events.ClientReady, (readyClient) => {
         const newQuotes = filteredMessages.filter(
           (message) => !dbQuotes.includes(message.content)
         );
+        let newQuotesCount = 0;
         newQuotes.forEach((message) => {
           db.query(
             'INSERT INTO citat SET?',
@@ -683,10 +715,14 @@ client.on(Events.ClientReady, (readyClient) => {
                 console.error(`%c${err}`, css.error);
                 return;
               }
+              newQuotesCount++;
             }
           );
         });
-        console.log(`%c${newQuotes.length} nya citat inlagda`, css.success);
+        console.log(
+          `%c${newQuotesCount} av ${newQuotes.length} nya citat inlagda`,
+          css.success
+        );
       });
     }
   );
