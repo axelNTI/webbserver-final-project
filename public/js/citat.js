@@ -22,17 +22,27 @@ $(function () {
     );
   };
   $('button').on('click', function () {
-    const id = $(this).parent().attr('id');
+    // Get the id from the parent element
+    const quote_id = $(this).parent().attr('id');
     const button_class = $(this).attr('class');
-    console.log(typeof user);
     if (!user.loggedIn) {
       alert('You must be logged in to vote');
       return;
     }
-    if (button_class.includes('upvote')) {
-      ws.send(JSON.stringify({ id: id, type: 'upvote', user: userID}));
-    } else {
-      ws.send(JSON.stringify({ id: id, type: 'downvote', user: userID}));
-    }
+    const type = button_class.includes('upvote') ? 'upvote' : 'downvote';
+    console.log(quote_id);
+    console.log(type);
+    $.ajax({
+      url: '/auth/vote',
+      method: 'POST',
+      data: { quote_id: quote_id, type: type },
+      success: function (data) {
+        console.log(data);
+      },
+      error: function (err) {
+        console.error(err);
+        alert('Error voting, please try again later');
+      },
+    });
   });
 });

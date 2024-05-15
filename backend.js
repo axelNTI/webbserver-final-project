@@ -20,7 +20,7 @@ const escapeHtml = require('escape-html'); // MIT
 const WebSocket = require('ws'); // MIT
 const hbs = require('hbs'); // MIT
 
-// Styling for console.log and console.error messages in VS Code
+// Styling for console.log and console.error messages in VSCode
 const css = {
   error: 'color: #FF4422;',
   success: 'color: #00FF7F;',
@@ -50,118 +50,6 @@ wss.on('connection', function connection(ws, req) {
   ws.on('message', function incoming(message) {
     message = JSON.parse(message);
     console.log(`%cReceived message: ${message.type}`, css.information);
-    switch (message.type) {
-      case 'upvote':
-        console.log('%cUpvote', css.information);
-        db.query(
-          'SELECT * FROM uservotes WHERE userID = ? AND quoteID = ?',
-          [message.userID, message.id],
-          (err, result) => {
-            if (err) {
-              console.error(`%c${err}`, css.error);
-              return;
-            }
-            if (result.length > 0 && result.type === 'downvote') {
-              db.query(
-                'UPDATE citat SET upvotes = upvotes + 1, downvotes = downvotes - 1 WHERE id = ?; SET type = ? WHERE userID = ? AND quoteID = ?',
-                [message.id, 'upvote', message.userID, message.id],
-                (err, result) => {
-                  if (err) {
-                    console.error(`%c${err}`, css.error);
-                    return;
-                  }
-                }
-              );
-            } else if (result.length > 0 && result.type === 'upvote') {
-              db.query(
-                'UPDATE citat SET upvotes = upvotes - 1 WHERE id = ?; DELETE FROM uservotes WHERE userID = ? AND quoteID = ?',
-                [message.id, req.session.userID, message.id],
-                (err, result) => {
-                  if (err) {
-                    console.error(`%c${err}`, css.error);
-                    return;
-                  }
-                }
-              );
-            } else if (result.length === 0) {
-              db.query(
-                'UPDATE citat SET upvotes = upvotes + 1 WHERE id = ?; INSERT INTO uservotes SET?',
-                [
-                  message.id,
-                  {
-                    userID: req.session.userID,
-                    quoteID: message.id,
-                    type: 'upvote',
-                  },
-                ],
-                (err, result) => {
-                  if (err) {
-                    console.error(`%c${err}`, css.error);
-                    return;
-                  }
-                }
-              );
-            }
-          }
-        );
-        break;
-      case 'downvote':
-        console.log('%cDownvote', css.information);
-        db.query(
-          'SELECT * FROM uservotes WHERE userID = ? AND quoteID = ?',
-          [req.session.userID, message.id],
-          (err, result) => {
-            if (err) {
-              console.error(`%c${err}`, css.error);
-              return;
-            }
-            if (result.length > 0 && result.type === 'upvote') {
-              db.query(
-                'UPDATE citat SET upvotes = upvotes - 1, downvotes = downvotes + 1 WHERE id = ?; SET type = ? WHERE userID = ? AND quoteID = ?',
-                [message.id, 'downvote', req.session.userID, message.id],
-                (err, result) => {
-                  if (err) {
-                    console.error(`%c${err}`, css.error);
-                    return;
-                  }
-                }
-              );
-            } else if (result.length > 0 && result.type === 'downvote') {
-              db.query(
-                'UPDATE citat SET downvotes = downvotes - 1 WHERE id = ?; DELETE FROM uservotes WHERE userID = ? AND quoteID = ?',
-                [message.id, req.session.userID, message.id],
-                (err, result) => {
-                  if (err) {
-                    console.error(`%c${err}`, css.error);
-                    return;
-                  }
-                }
-              );
-            } else if (result.length === 0) {
-              db.query(
-                'UPDATE citat SET downvotes = downvotes + 1 WHERE id = ?; INSERT INTO uservotes SET?',
-                [
-                  message.id,
-                  {
-                    userID: req.session.userID,
-                    quoteID: message.id,
-                    type: 'downvote',
-                  },
-                ],
-                (err, result) => {
-                  if (err) {
-                    console.error(`%c${err}`, css.error);
-                    return;
-                  }
-                }
-              );
-            }
-          }
-        );
-        break;
-      default:
-        console.log('%cUnknown message', css.warning);
-    }
   });
   ws.on('close', function () {
     connections.delete(ws);
@@ -234,37 +122,41 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-db.connect((err) => {
+db.connect(async (err) => {
   if (err) {
     console.error(`%c${err}`, css.error);
   } else {
     console.log('%cAnsluten till MySQL', css.success);
 
     // Jag använder en annan repository för att spara databasen. Detta kan leda till en error angående tablespaces. Denna kod löser problemet.
-    db.query('SHOW TABLES', (err, result) => {
-      if (err) {
-        console.error(`%c${err}`, css.error);
-        return;
-      }
-      result
-        .map((table) => table.Tables_in_regeringen)
-        .forEach((table) => {
-          db.query(`ALTER TABLE ${table} IMPORT TABLESPACE`, (err, result) => {
-            if (err && err.code === 'ER_TABLESPACE_EXISTS') {
-              console.log(
-                `%cTablespace already exists for ${table}`,
-                css.success
-              );
-              return;
-            }
-            if (err) {
-              console.error(`%c${err}`, css.error);
-              return;
-            }
-            console.log(`%cTablespace has been added to ${table}`, css.warning);
-          });
-        });
+    const tables = await new Promise((resolve, reject) => {
+      db.query('SHOW TABLES', (err, result) => {
+        if (err) {
+          reject(err);
+        }
+        resolve(result);
+      });
+    }).catch((err) => {
+      console.error(`%c${err}`, css.error);
     });
+    tables
+      .map((table) => table.Tables_in_regeringen)
+      .forEach((table) => {
+        db.query(`ALTER TABLE ${table} IMPORT TABLESPACE`, (err, result) => {
+          if (err && err.code === 'ER_TABLESPACE_EXISTS') {
+            console.log(
+              `%cTablespace already exists for ${table}`,
+              css.success
+            );
+            return;
+          }
+          if (err) {
+            console.error(`%c${err}`, css.error);
+            return;
+          }
+          console.log(`%cTablespace has been added to ${table}`, css.warning);
+        });
+      });
   }
 });
 
@@ -288,125 +180,153 @@ app.get('/account', (req, res) => {
   res.render('account', { user: req.session, query: req.query });
 });
 
-app.get('/citat', (req, res) => {
-  db.query('SELECT * FROM citat', (err, result) => {
-    if (err) {
-      console.error(`%c${err}`, css.error);
-      return res.status(500).json({ message: 'Server error' });
-    }
-    const citat = result;
+app.get('/citat', async (req, res) => {
+  const quotes = await new Promise((resolve, reject) => {
+    db.query('SELECT * FROM citat', (err, result) => {
+      if (err) {
+        reject(err);
+      }
+    });
+  }).catch((err) => {
+    console.error(`%c${err}`, css.error);
+    return res.status(500).json({ message: 'Server error' });
+  });
+  const userVotes = await new Promise((resolve, reject) => {
     db.query(
       'SELECT * FROM uservotes WHERE userID = ?',
       [req.session.userID],
       (err, result) => {
         if (err) {
-          console.error(`%c${err}`, css.error);
-          return res.status(500).json({ message: 'Server error' });
+          reject(err);
         }
-        const userVotes = result.map((vote) => vote.quoteID);
-        console.log(userVotes);
-
-        // res.json(result);
-        // const quoted = filteredMessages.flatMap((message) => {
-        //   const individuals = [];
-        //   const lines = message.content.split(newLineRegex);
-        //   lines.forEach((line) => {
-        //     const matches = line.match(userRegex);
-        //     if (matches) {
-        //       individuals.push(...matches.map((match) => match.trim()));
-        //     } else {
-        //       console.log(`%c${line}`, css.error);
-        //     }
-        //   });
-        //   return individuals;
-        // });
-        // const quotedCount = Object.fromEntries(
-        //   Object.entries(
-        //     quoted.reduce((acc, user) => {
-        //       acc[user] = (acc[user] || 0) + 1;
-        //       return acc;
-        //     }, {})
-        //   ).sort(([, a], [, b]) => b - a)
-        // );
-        // const messageCount = Object.fromEntries(
-        //   Object.entries(
-        //     filteredMessages
-        //       .map((message) => message.author)
-        //       .reduce((acc, user) => {
-        //         acc[user.displayName] = (acc[user.displayName] || 0) + 1;
-        //         return acc;
-        //       }, {})
-        //   ).sort(([, a], [, b]) => b - a)
-        // );
-        res.render('citat', {
-          citat: citat,
-          user: req.session,
-          query: req.query,
-        });
+        resolve(result);
       }
     );
+  }).catch((err) => {
+    console.error(`%c${err}`, css.error);
+    return res.status(500).json({ message: 'Server error' });
+  });
+  console.log(userVotes);
+
+  // res.json(result);
+  // const quoted = filteredMessages.flatMap((message) => {
+  //   const individuals = [];
+  //   const lines = message.content.split(newLineRegex);
+  //   lines.forEach((line) => {
+  //     const matches = line.match(userRegex);
+  //     if (matches) {
+  //       individuals.push(...matches.map((match) => match.trim()));
+  //     } else {
+  //       console.log(`%c${line}`, css.error);
+  //     }
+  //   });
+  //   return individuals;
+  // });
+  // const quotedCount = Object.fromEntries(
+  //   Object.entries(
+  //     quoted.reduce((acc, user) => {
+  //       acc[user] = (acc[user] || 0) + 1;
+  //       return acc;
+  //     }, {})
+  //   ).sort(([, a], [, b]) => b - a)
+  // );
+  // const messageCount = Object.fromEntries(
+  //   Object.entries(
+  //     filteredMessages
+  //       .map((message) => message.author)
+  //       .reduce((acc, user) => {
+  //         acc[user.displayName] = (acc[user.displayName] || 0) + 1;
+  //         return acc;
+  //       }, {})
+  //   ).sort(([, a], [, b]) => b - a)
+  // );
+  res.render('citat', {
+    citat: citat,
+    votes: userVotes,
+    user: req.session,
+    query: req.query,
   });
 });
 
-app.get('/screenshots', (req, res) => {
-  db.query('SELECT * FROM screenshots', (err, result) => {
-    if (err) {
-      console.error(`%c${err}`, css.error);
-      return res.status(500).json({ message: 'Server error' });
-    }
-
-    res.render('screenshots', {
-      screenshots: result,
-      user: req.session,
-      query: req.query,
+app.get('/screenshots', async (req, res) => {
+  const screenshots = await new Promise((resolve, reject) => {
+    db.query('SELECT * FROM screenshots', (err, result) => {
+      if (err) {
+        reject(err);
+      }
+      resolve(result);
     });
+  }).catch((err) => {
+    console.error(`%c${err}`, css.error);
+    return res.status(500).json({ message: 'Server error' });
+  });
+  res.render('screenshots', {
+    screenshots: screenshots,
+    user: req.session,
+    query: req.query,
   });
 });
 
-app.get('/activity', (req, res) => {
-  db.query('SELECT * FROM activities ORDER BY time DESC ', (err, result) => {
-    if (err) {
+app.get('/activity', async (req, res) => {
+  const activities = await new Promise((resolve, reject) => {
+    db.query('SELECT * FROM activities ORDER BY time DESC ', (err, result) => {
+      if (err) {
+        reject(err);
+      }
+      resolve(result);
+    });
+  })
+    .catch((err) => {
       console.error(`%c${err}`, css.error);
       return res.status(500).json({ message: 'Server error' });
-    }
-    const activities = result.map((activity) => {
-      const hours = Math.floor(activity.time / 3600000);
-      const minutes = Math.floor((activity.time % 3600000) / 60000);
-      const seconds = Math.floor((activity.time % 60000) / 1000);
-      return {
-        name: activity.name,
-        time: `${hours}h ${minutes}m ${seconds}s`,
-      };
+    })
+    .then((activities) => {
+      return activities.map((activity) => {
+        const hours = Math.floor(activity.time / 3600000);
+        const minutes = Math.floor((activity.time % 3600000) / 60000);
+        const seconds = Math.floor((activity.time % 60000) / 1000);
+        return {
+          name: activity.name,
+          time: `${hours}h ${minutes}m ${seconds}s`,
+        };
+      });
     });
-    res.render('activity', {
-      activities: activities,
-      user: req.session,
-      query: req.query,
-    });
+  res.render('activity', {
+    activities: activities,
+    user: req.session,
+    query: req.query,
   });
 });
 
-app.get('/spotify', (req, res) => {
-  db.query('SELECT * FROM spotify ORDER BY time DESC ', (err, result) => {
-    if (err) {
+app.get('/spotify', async (req, res) => {
+  const spotify = await new Promise((resolve, reject) => {
+    db.query('SELECT * FROM spotify ORDER BY time DESC ', (err, result) => {
+      if (err) {
+        reject(err);
+      }
+      resolve(result);
+    });
+  })
+    .catch((err) => {
       console.error(`%c${err}`, css.error);
       return res.status(500).json({ message: 'Server error' });
-    }
-    const spotify = result.map((song) => {
-      const hours = Math.floor(song.time / 3600000);
-      const minutes = Math.floor((song.time % 3600000) / 60000);
-      const seconds = Math.floor((song.time % 60000) / 1000);
-      return {
-        song: song.song,
-        artist: song.artist,
-        time: `${hours}h ${minutes}m ${seconds}s`,
-      };
+    })
+    .then((spotify) => {
+      return spotify.map((song) => {
+        const hours = Math.floor(song.time / 3600000);
+        const minutes = Math.floor((song.time % 3600000) / 60000);
+        const seconds = Math.floor((song.time % 60000) / 1000);
+        return {
+          song: song.song,
+          artist: song.artist,
+          time: `${hours}h ${minutes}m ${seconds}s`,
+        };
+      });
     });
-    res.render('spotify', {
-      spotify: spotify,
-      user: req.session,
-      query: req.query,
-    });
+  res.render('spotify', {
+    spotify: spotify,
+    user: req.session,
+    query: req.query,
   });
 });
 
@@ -769,9 +689,134 @@ app.post('/auth/discord', async (req, res) => {
   return res.status(200).json({ message: 'Inloggad med Discord' });
 });
 
+app.post('/auth/vote', (req, res) => {
+  console.log(req.session);
+  console.log(req.body);
+  const { quote_id, type } = req.body;
+  if (!quote_id || !type) {
+    return res.status(400).json({ message: 'Ogiltig förfrågan' });
+  }
+  console.log(req.session);
+  console.log(quote_id);
+  console.log(type);
+  while (true) {}
+  switch (type) {
+    case 'upvote':
+      console.log('%cUpvote', css.information);
+      db.query(
+        'SELECT * FROM uservotes WHERE userID = ? AND quoteID = ?',
+        [req.session, message.id],
+        (err, result) => {
+          if (err) {
+            console.error(`%c${err}`, css.error);
+            return;
+          }
+          if (result.length > 0 && result.type === 'downvote') {
+            db.query(
+              'UPDATE citat SET upvotes = upvotes + 1, downvotes = downvotes - 1 WHERE id = ?; SET type = ? WHERE userID = ? AND quoteID = ?',
+              [message.id, 'upvote', message.userID, message.id],
+              (err, result) => {
+                if (err) {
+                  console.error(`%c${err}`, css.error);
+                  return;
+                }
+              }
+            );
+          } else if (result.length > 0 && result.type === 'upvote') {
+            db.query(
+              'UPDATE citat SET upvotes = upvotes - 1 WHERE id = ?; DELETE FROM uservotes WHERE userID = ? AND quoteID = ?',
+              [message.id, req.session.userID, message.id],
+              (err, result) => {
+                if (err) {
+                  console.error(`%c${err}`, css.error);
+                  return;
+                }
+              }
+            );
+          } else if (result.length === 0) {
+            db.query(
+              'UPDATE citat SET upvotes = upvotes + 1 WHERE id = ?; INSERT INTO uservotes SET?',
+              [
+                message.id,
+                {
+                  userID: req.session.userID,
+                  quoteID: message.id,
+                  type: 'upvote',
+                },
+              ],
+              (err, result) => {
+                if (err) {
+                  console.error(`%c${err}`, css.error);
+                  return;
+                }
+              }
+            );
+          }
+        }
+      );
+      break;
+    case 'downvote':
+      console.log('%cDownvote', css.information);
+      db.query(
+        'SELECT * FROM uservotes WHERE userID = ? AND quoteID = ?',
+        [req.session.userID, message.id],
+        (err, result) => {
+          if (err) {
+            console.error(`%c${err}`, css.error);
+            return;
+          }
+          if (result.length > 0 && result.type === 'upvote') {
+            db.query(
+              'UPDATE citat SET upvotes = upvotes - 1, downvotes = downvotes + 1 WHERE id = ?; SET type = ? WHERE userID = ? AND quoteID = ?',
+              [message.id, 'downvote', req.session.userID, message.id],
+              (err, result) => {
+                if (err) {
+                  console.error(`%c${err}`, css.error);
+                  return;
+                }
+              }
+            );
+          } else if (result.length > 0 && result.type === 'downvote') {
+            db.query(
+              'UPDATE citat SET downvotes = downvotes - 1 WHERE id = ?; DELETE FROM uservotes WHERE userID = ? AND quoteID = ?',
+              [message.id, req.session.userID, message.id],
+              (err, result) => {
+                if (err) {
+                  console.error(`%c${err}`, css.error);
+                  return;
+                }
+              }
+            );
+          } else if (result.length === 0) {
+            db.query(
+              'UPDATE citat SET downvotes = downvotes + 1 WHERE id = ?; INSERT INTO uservotes SET?',
+              [
+                message.id,
+                {
+                  userID: req.session.userID,
+                  quoteID: message.id,
+                  type: 'downvote',
+                },
+              ],
+              (err, result) => {
+                if (err) {
+                  console.error(`%c${err}`, css.error);
+                  return;
+                }
+              }
+            );
+          }
+        }
+      );
+      break;
+    default:
+      console.log('%cUnknown message', css.warning);
+  }
+});
+
 client.login(process.env.DISCORD_TOKEN);
 
-client.on(Events.ClientReady, (readyClient) => {
+client.on(Events.ClientReady, async (readyClient) => {
   console.log(`%cBotten är online som ${readyClient.user.tag}`, css.success);
   client.user.setPresence({
     activities: [
