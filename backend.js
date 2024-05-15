@@ -820,120 +820,113 @@ client.on(Events.ClientReady, async (readyClient) => {
       { name: `Samlar data om regeringen`, type: ActivityType.Custom },
     ],
   });
-  fetchAllMessages(process.env.DISCORD_CHANNEL_ID_CITAT_DEPARTEMENTET).then(
-    (messages) => {
-      filteredMessages = messages
-        .filter(
-          (message) =>
-            messages.indexOf(message) !== messages.length - 1 && !message.system
-        )
-        .reverse()
-        .filter((message) => {
-          const matched = message.content.match(userRegex);
-          if (matched === null) {
-            console.log(
-              `%cFelaktig citat-syntax: ${message.content}`,
-              css.warning
-            );
+  const quotes = await fetchAllMessages(
+    process.env.DISCORD_CHANNEL_ID_CITAT_DEPARTEMENTET
+  );
+  const filteredQuotes = quotes
+    .filter(
+      (message) =>
+        quotes.indexOf(message) !== quotes.length - 1 && !message.system
+    )
+    .reverse()
+    .filter((message) => {
+      const matched = message.content.match(userRegex);
+      if (matched === null) {
+        console.log(`%cFelaktig citat-syntax: ${message.content}`, css.warning);
+      }
+      return matched !== null;
+    });
+  const dbQuotes = await new Promise((resolve, reject) => {
+    db.query('SELECT * FROM citat', (err, result) => {
+      if (err) {
+        reject(err);
+      }
+      resolve(result);
+    });
+  }).catch((err) => {
+    console.error(`%c${err}`, css.error);
+    return;
+  });
+  const dbQuotesArray = dbQuotes.map((quote) => quote.quote);
+  const newQuotes = filteredQuotes.filter(
+    (message) => !dbQuotesArray.includes(message.content)
+  );
+  let newQuotesCount = 0;
+  const quotePromises = [];
+  newQuotes.forEach((message) => {
+    const promise = new Promise((resolve, reject) => {
+      db.query(
+        'INSERT INTO citat SET ?',
+        {
+          upvotes: 0,
+          downvotes: 0,
+          quote: message.content,
+          discordUsername: message.author.username,
+        },
+        (err, result) => {
+          if (err) {
+            reject(err);
           }
-          return matched !== null;
-        });
-      const quotes = (async () => {
-        return await new Promise((resolve, reject) => {
-          db.query('SELECT * FROM citat', (err, result) => {
-            if (err) {
-              reject(err);
-            }
-            resolve(result);
-          });
-        });
-      })().catch((err) => {
-        console.error(`%c${err}`, css.error);
-        return;
-      });
-      const dbQuotes = quotes.map((quote) => quote.quote);
-      const newQuotes = filteredMessages.filter(
-        (message) => !dbQuotes.includes(message.content)
+          newQuotesCount++;
+          resolve();
+        }
       );
-      let newQuotesCount = 0;
-      const promises = [];
-      newQuotes.forEach((message) => {
-        const promise = new Promise((resolve, reject) => {
-          db.query(
-            'INSERT INTO citat SET ?',
-            {
-              upvotes: 0,
-              downvotes: 0,
-              quote: message.content,
-              discordUsername: message.author.username,
-            },
-            (err, result) => {
-              if (err) {
-                console.error(`%c${err}`, css.error);
-                reject(err);
-              } else {
-                newQuotesCount++;
-                resolve();
-              }
-            }
-          );
-        });
-        promises.push(promise);
-      });
-      Promise.all(promises).then(() => {
-        console.log(
-          `%c${newQuotesCount} av ${newQuotes.length} nya citat inlagda`,
-          css.success
-        );
-      });
-    }
+    }).catch((err) => {
+      console.error(`%c${err}`, css.error);
+      return;
+    });
+    quotePromises.push(promise);
+  });
+  Promise.all(quotePromises).then(() => {
+    console.log(
+      `%c${newQuotesCount} av ${newQuotes.length} nya citat inlagda`,
+      css.success
+    );
+  });
+  const screenshots = await fetchAllMessages(
+    process.env.DISCORD_CHANNEL_ID_SCREENSHOTS
   );
-  fetchAllMessages(process.env.DISCORD_CHANNEL_ID_SCREENSHOTS).then(
-    (messages) => {
-      (async () => {
-        await new Promise((resolve, reject) => {
-          db.query('TRUNCATE TABLE screenshots', (err, result) => {
-            if (err) {
-              reject(err);
-            }
-            resolve();
-          });
+  await new Promise((resolve, reject) => {
+    db.query('TRUNCATE TABLE screenshots', (err, result) => {
+      if (err) {
+        reject(err);
+      }
+      resolve();
+    });
+  }).catch((err) => {
+    console.error(`%c${err}`, css.error);
+    return;
+  });
+  const screenshotPromises = [];
+  screenshots
+    .filter((message) => message.attachments.size > 0 && !message.system)
+    .reverse()
+    .map((message) => {
+      return message.attachments.map((attachment) => {
+        return {
+          url: attachment.url,
+          discordUsername: message.author.username,
+          messageID: message.id,
+        };
+      });
+    })
+    .flat()
+    .forEach((screenshot) => {
+      const promise = new Promise((resolve, reject) => {
+        db.query('INSERT INTO screenshots SET ?', screenshot, (err, result) => {
+          if (err) {
+            reject(err);
+          }
+          resolve();
         });
-      })().catch((err) => {
+      }).catch((err) => {
         console.error(`%c${err}`, css.error);
-        return;
       });
-      messages
-        .filter((message) => message.attachments.size > 0 && !message.system)
-        .reverse()
-        .forEach((message) => {
-          message.attachments.forEach((attachment) => {
-            (async () => {
-              await new Promise((resolve, reject) => {
-                db.query(
-                  'INSERT INTO screenshots SET?',
-                  {
-                    url: attachment.url,
-                    discordUsername: message.author.username,
-                    messageID: message.id,
-                  },
-                  (err, result) => {
-                    if (err) {
-                      reject(err);
-                    }
-                    resolve();
-                  }
-                );
-              });
-            })().catch((err) => {
-              console.error(`%c${err}`, css.error);
-              return;
-            });
-          });
-        });
-      console.log('%cScreenshots återställda', css.success);
-    }
-  );
+      screenshotPromises.push(promise);
+    });
+  Promise.all(screenshotPromises).then(() => {
+    console.log('%cScreenshots återställda', css.success);
+  });
 });
 
 client.on(Events.MessageCreate, async (message) => {
@@ -944,28 +937,21 @@ client.on(Events.MessageCreate, async (message) => {
       console.log(`%c${message.content}`, css.error);
       return;
     }
-    (async () => {
-      await new Promise((resolve, reject) => {
-        db.query(
-          'INSERT INTO citat SET?',
-          {
-            upvotes: 0,
-            downvotes: 0,
-            quote: message.content,
-            discordUsername: message.author.username,
-          },
-          (err, result) => {
-            if (err) {
-              reject(err);
-            }
-            resolve();
-          }
-        );
-      });
-    })().catch((err) => {
-      console.error(`%c${err}`, css.error);
-      return;
-    });
+    db.query(
+      'INSERT INTO citat SET ?',
+      {
+        upvotes: 0,
+        downvotes: 0,
+        quote: message.content,
+        discordUsername: message.author.username,
+      },
+      (err, result) => {
+        if (err) {
+          console.error(`%c${err}`, css.error);
+          return;
+        }
+      }
+    );
     console.log(`%cCitat inlagt: ${message.content}`, css.information);
     connections.forEach((pageId, ws) => {
       if (pageId === 'citat' && ws.readyState === WebSocket.OPEN) {
@@ -975,27 +961,20 @@ client.on(Events.MessageCreate, async (message) => {
     return;
   } else if (message.channelId === process.env.DISCORD_CHANNEL_ID_SCREENSHOTS) {
     message.attachments.forEach((attachment) => {
-      (async () => {
-        await new Promise((resolve, reject) => {
-          db.query(
-            'INSERT INTO screenshots SET?',
-            {
-              url: attachment.url,
-              discordUsername: message.author.username,
-              messageID: message.id,
-            },
-            (err, result) => {
-              if (err) {
-                reject(err);
-              }
-              resolve();
-            }
-          );
-        });
-      })().catch((err) => {
-        console.error(`%c${err}`, css.error);
-        return;
-      });
+      db.query(
+        'INSERT INTO screenshots SET ?',
+        {
+          url: attachment.url,
+          discordUsername: message.author.username,
+          messageID: message.id,
+        },
+        (err, result) => {
+          if (err) {
+            console.error(`%c${err}`, css.error);
+            return;
+          }
+        }
+      );
       console.log(`%cScreenshot inlagt: ${attachment.url}`, css.information);
       connections.forEach((pageId, ws) => {
         if (pageId === 'screenshots' && ws.readyState === WebSocket.OPEN) {
