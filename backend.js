@@ -275,24 +275,21 @@ app.get('/activity', async (req, res) => {
       }
       resolve(result);
     });
-  })
-    .catch((err) => {
-      console.error(`%c${err}`, css.error);
-      return res.status(500).json({ message: 'Server error' });
-    })
-    .then((activities) => {
-      return activities.map((activity) => {
-        const hours = Math.floor(activity.time / 3600000);
-        const minutes = Math.floor((activity.time % 3600000) / 60000);
-        const seconds = Math.floor((activity.time % 60000) / 1000);
-        return {
-          name: activity.name,
-          time: `${hours}h ${minutes}m ${seconds}s`,
-        };
-      });
-    });
+  }).catch((err) => {
+    console.error(`%c${err}`, css.error);
+    return res.status(500).json({ message: 'Server error' });
+  });
+  const mappedActivities = activities.map((activity) => {
+    const hours = Math.floor(activity.time / 3600000);
+    const minutes = Math.floor((activity.time % 3600000) / 60000);
+    const seconds = Math.floor((activity.time % 60000) / 1000);
+    return {
+      name: activity.name,
+      time: `${hours}h ${minutes}m ${seconds}s`,
+    };
+  });
   res.render('activity', {
-    activities: activities,
+    activities: mappedActivities,
     user: req.session,
     query: req.query,
   });
@@ -834,88 +831,112 @@ client.on(Events.ClientReady, async (readyClient) => {
         .filter((message) => {
           const matched = message.content.match(userRegex);
           if (matched === null) {
-            console.log(`%c${message.content}`, css.error);
+            console.log(
+              `%cFelaktig citat-syntax: ${message.content}`,
+              css.warning
+            );
           }
           return matched !== null;
         });
-      db.query('SELECT * FROM citat', (err, result) => {
-        if (err) {
-          console.error(`%c${err}`, css.error);
-          return;
-        }
-        const dbQuotes = result.map((quote) => quote.quote);
-        const newQuotes = filteredMessages.filter(
-          (message) => !dbQuotes.includes(message.content)
-        );
-        let newQuotesCount = 0;
-        const promises = [];
-        newQuotes.forEach((message) => {
-          const promise = new Promise((resolve, reject) => {
-            db.query(
-              'INSERT INTO citat SET ?',
-              {
-                upvotes: 0,
-                downvotes: 0,
-                quote: message.content,
-                discordUsername: message.author.username,
-              },
-              (err, result) => {
-                if (err) {
-                  console.error(`%c${err}`, css.error);
-                  reject(err);
-                } else {
-                  newQuotesCount++;
-                  resolve();
-                }
-              }
-            );
+      const quotes = (async () => {
+        return await new Promise((resolve, reject) => {
+          db.query('SELECT * FROM citat', (err, result) => {
+            if (err) {
+              reject(err);
+            }
+            resolve(result);
           });
-          promises.push(promise);
         });
-        Promise.all(promises).then(() => {
-          console.log(
-            `%c${newQuotesCount} av ${newQuotes.length} nya citat inlagda`,
-            css.success
+      })().catch((err) => {
+        console.error(`%c${err}`, css.error);
+        return;
+      });
+      const dbQuotes = quotes.map((quote) => quote.quote);
+      const newQuotes = filteredMessages.filter(
+        (message) => !dbQuotes.includes(message.content)
+      );
+      let newQuotesCount = 0;
+      const promises = [];
+      newQuotes.forEach((message) => {
+        const promise = new Promise((resolve, reject) => {
+          db.query(
+            'INSERT INTO citat SET ?',
+            {
+              upvotes: 0,
+              downvotes: 0,
+              quote: message.content,
+              discordUsername: message.author.username,
+            },
+            (err, result) => {
+              if (err) {
+                console.error(`%c${err}`, css.error);
+                reject(err);
+              } else {
+                newQuotesCount++;
+                resolve();
+              }
+            }
           );
         });
+        promises.push(promise);
+      });
+      Promise.all(promises).then(() => {
+        console.log(
+          `%c${newQuotesCount} av ${newQuotes.length} nya citat inlagda`,
+          css.success
+        );
       });
     }
   );
   fetchAllMessages(process.env.DISCORD_CHANNEL_ID_SCREENSHOTS).then(
     (messages) => {
-      db.query('TRUNCATE TABLE screenshots', (err, result) => {
-        if (err) {
-          console.error(`%c${err}`, css.error);
-          return;
-        }
-        messages
-          .filter((message) => message.attachments.size > 0 && !message.system)
-          .reverse()
-          .forEach((message) => {
-            message.attachments.forEach((attachment) => {
-              db.query(
-                'INSERT INTO screenshots SET?',
-                {
-                  url: attachment.url,
-                  discordUsername: message.author.username,
-                  messageID: message.id,
-                },
-                (err, result) => {
-                  if (err) {
-                    console.error(`%c${err}`, css.error);
-                    return;
+      (async () => {
+        await new Promise((resolve, reject) => {
+          db.query('TRUNCATE TABLE screenshots', (err, result) => {
+            if (err) {
+              reject(err);
+            }
+            resolve();
+          });
+        });
+      })().catch((err) => {
+        console.error(`%c${err}`, css.error);
+        return;
+      });
+      messages
+        .filter((message) => message.attachments.size > 0 && !message.system)
+        .reverse()
+        .forEach((message) => {
+          message.attachments.forEach((attachment) => {
+            (async () => {
+              await new Promise((resolve, reject) => {
+                db.query(
+                  'INSERT INTO screenshots SET?',
+                  {
+                    url: attachment.url,
+                    discordUsername: message.author.username,
+                    messageID: message.id,
+                  },
+                  (err, result) => {
+                    if (err) {
+                      reject(err);
+                    }
+                    resolve();
                   }
-                }
-              );
+                );
+              });
+            })().catch((err) => {
+              console.error(`%c${err}`, css.error);
+              return;
             });
           });
-        console.log('%cScreenshots återställda', css.success);
-      });
+        });
+      console.log('%cScreenshots återställda', css.success);
     }
   );
 });
 
-client.on(Events.MessageCreate, (message) => {
+client.on(Events.MessageCreate, async (message) => {
   if (
     message.channelId === process.env.DISCORD_CHANNEL_ID_CITAT_DEPARTEMENTET
   ) {
@@ -923,22 +944,29 @@ client.on(Events.MessageCreate, (message) => {
       console.log(`%c${message.content}`, css.error);
       return;
     }
-    db.query(
-      'INSERT INTO citat SET?',
-      {
-        upvotes: 0,
-        downvotes: 0,
-        quote: message.content,
-        discordUsername: message.author.username,
-      },
-      (err, result) => {
-        if (err) {
-          console.error(`%c${err}`, css.error);
-          return;
-        }
-        console.log(`%cCitat inlagt: ${message.content}`, css.information);
-      }
-    );
+    (async () => {
+      await new Promise((resolve, reject) => {
+        db.query(
+          'INSERT INTO citat SET?',
+          {
+            upvotes: 0,
+            downvotes: 0,
+            quote: message.content,
+            discordUsername: message.author.username,
+          },
+          (err, result) => {
+            if (err) {
+              reject(err);
+            }
+            resolve();
+          }
+        );
+      });
+    })().catch((err) => {
+      console.error(`%c${err}`, css.error);
+      return;
+    });
+    console.log(`%cCitat inlagt: ${message.content}`, css.information);
     connections.forEach((pageId, ws) => {
       if (pageId === 'citat' && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(message));
@@ -947,24 +975,28 @@ client.on(Events.MessageCreate, (message) => {
     return;
   } else if (message.channelId === process.env.DISCORD_CHANNEL_ID_SCREENSHOTS) {
     message.attachments.forEach((attachment) => {
-      db.query(
-        'INSERT INTO screenshots SET?',
-        {
-          url: attachment.url,
-          discordUsername: message.author.username,
-          messageID: message.id,
-        },
-        (err, result) => {
-          if (err) {
-            console.error(`%c${err}`, css.error);
-            return;
-          }
-          console.log(
-            `%cScreenshot inlagt: ${attachment.url}`,
-            css.information
+      (async () => {
+        await new Promise((resolve, reject) => {
+          db.query(
+            'INSERT INTO screenshots SET?',
+            {
+              url: attachment.url,
+              discordUsername: message.author.username,
+              messageID: message.id,
+            },
+            (err, result) => {
+              if (err) {
+                reject(err);
+              }
+              resolve();
+            }
           );
-        }
-      );
+        });
+      })().catch((err) => {
+        console.error(`%c${err}`, css.error);
+        return;
+      });
+      console.log(`%cScreenshot inlagt: ${attachment.url}`, css.information);
       connections.forEach((pageId, ws) => {
         if (pageId === 'screenshots' && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify(message));
@@ -975,7 +1007,7 @@ client.on(Events.MessageCreate, (message) => {
   }
 });
 
-client.on(Events.PresenceUpdate, (oldActivities, newActivities) => {
+client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
   // TODO: Fixa att databasen uppdateras om man har en låt på repeat.
   if (oldActivities && oldActivities.activities) {
     oldActivities.activities
@@ -991,81 +1023,120 @@ client.on(Events.PresenceUpdate, (oldActivities, newActivities) => {
           new Date().getTime() - activity.createdTimestamp,
           0
         );
-        db.query(
-          'SELECT * FROM activities WHERE name = ?',
-          [activity.name],
-          (err, result) => {
-            if (err) {
-              console.error(`%c${err}`, css.error);
-              return;
-            }
-            if (result.length === 0) {
+        const activities = (async () => {
+          return await new Promise((resolve, reject) => {
+            db.query(
+              'SELECT * FROM activities WHERE name = ?',
+              [activity.name],
+              (err, result) => {
+                if (err) {
+                  reject(err);
+                }
+                resolve(result);
+              }
+            );
+          });
+        })().catch((err) => {
+          console.error(`%c${err}`, css.error);
+          return;
+        });
+        if (activities.length === 0) {
+          (async () => {
+            await new Promise((resolve, reject) => {
               db.query(
                 'INSERT INTO activities SET?',
-                {
-                  name: activity.name,
-                  time: time,
-                },
+                { name: activity.name, time: time },
                 (err, result) => {
                   if (err) {
-                    console.error(`%c${err}`, css.error);
-                    return;
+                    reject(err);
                   }
+                  resolve();
                 }
               );
-            } else {
+            });
+          })().catch((err) => {
+            console.error(`%c${err}`, css.error);
+            return;
+          });
+        } else {
+          (async () => {
+            await new Promise((resolve, reject) => {
               db.query(
                 'UPDATE activities SET time = time + ? WHERE name = ?',
                 [time, activity.name],
                 (err, result) => {
                   if (err) {
-                    console.error(`%c${err}`, css.error);
-                    return;
+                    reject(err);
                   }
+                  resolve();
                 }
               );
-            }
-            if (activity.name === 'Spotify') {
+            });
+          })().catch((err) => {
+            console.error(`%c${err}`, css.error);
+            return;
+          });
+        }
+        if (activity.name === 'Spotify') {
+          const spotifyActivities = (async () => {
+            return await new Promise((resolve, reject) => {
               db.query(
                 'SELECT * FROM spotify WHERE song = ? AND artist = ?',
                 [activity.details, activity.state],
                 (err, result) => {
                   if (err) {
-                    console.error(`%c${err}`, css.error);
-                    return;
+                    reject(err);
                   }
-                  if (result.length === 0) {
-                    db.query(
-                      'INSERT INTO spotify SET?',
-                      {
-                        song: activity.details,
-                        artist: activity.state,
-                        time: time,
-                      },
-                      (err, result) => {
-                        if (err) {
-                          console.error(`%c${err}`, css.error);
-                          return;
-                        }
-                      }
-                    );
-                  } else {
-                    db.query(
-                      'UPDATE spotify SET time = time + ? WHERE song = ? AND artist = ?',
-                      [time, activity.details, activity.state],
-                      (err, result) => {
-                        if (err) {
-                          console.error(`%c${err}`, css.error);
-                          return;
-                        }
-                      }
-                    );
-                  }
+                  resolve(result);
                 }
               );
-            }
+            });
+          })().catch((err) => {
+            console.error(`%c${err}`, css.error);
+            return;
+          });
+          if (spotifyActivities.length === 0) {
+            async () => {
+              await new Promise((resolve, reject) => {
+                db.query(
+                  'INSERT INTO spotify SET?',
+                  {
+                    song: activity.details,
+                    artist: activity.state,
+                    time: time,
+                  },
+                  (err, result) => {
+                    if (err) {
+                      reject(err);
+                    }
+                    resolve();
+                  }
+                );
+              })().catch((err) => {
+                console.error(`%c${err}`, css.error);
+                return;
+              });
+            };
+          } else {
+            async () => {
+              await new Promise((resolve, reject) => {
+                db.query(
+                  'UPDATE spotify SET time = time + ? WHERE song = ? AND artist = ?',
+                  [time, activity.details, activity.state],
+                  (err, result) => {
+                    if (err) {
+                      reject(err);
+                    }
+                    resolve();
+                  }
+                );
+              })().catch((err) => {
+                console.error(`%c${err}`, css.error);
+                return;
+              });
+            };
           }
-        );
+        }
       });
   }
 });
