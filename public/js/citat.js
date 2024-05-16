@@ -12,7 +12,7 @@ $(function () {
     },
   });
   $('li').each(function () {
-    $(this).html($(this).text().replaceAll(/\n/g, '<br>'));
+    $(this).children('.quote').text().replaceAll(/\n/g, '<br>');
   });
   ws.onmessage = function (event) {
     $('ul').append(
@@ -21,12 +21,13 @@ $(function () {
         '</li><br>'
     );
   };
-  $('button').on('click', function () {
+
+  $('.quote-vote').on('click', function () {
     if (!user.loggedIn) {
       alert('You must be logged in to vote');
       return;
     }
-    const quoteID = $(this).prevAll('li').attr('id');
+    const quoteID = $(this).parent().attr('id');
     const type = $(this).attr('class').includes('upvote')
       ? 'upvote'
       : 'downvote';
@@ -35,24 +36,27 @@ $(function () {
       method: 'POST',
       data: { quoteID: quoteID, type: type },
       success: function (data) {
-        console.log(data);
         if (data.error) {
           alert(data.error);
           return;
         }
         if (data.message === 'Röstat') {
-          // Add logic to update the vote count
-          // If the user has not voted on this quote before, add 1 to either upvotes or downvotes
-          // If the user has voted on this quote before and the vote type is the same, remove 1 from the corresponding vote type
-          // If the user has voted on this quote before and the vote type is different, add 1 to the corresponding vote type and remove 1 from the other vote type
-          // The information sent back from the server is message, and previous
-          // The only new information is previous, which is either upvotes, downvotes, or null
           const previous = data.previous;
-          // type and quoteID are already defined
-
-          // If the user has not voted on this quote before
           if (!previous) {
-            if
+            $(`#${quoteID}`)
+              .children(`.${type}-display`)
+              .text((_, oldText) => parseInt(oldText) + 1);
+          } else if (previous === type) {
+            $(`#${quoteID}`)
+              .children(`.${type}-display`)
+              .text((_, oldText) => parseInt(oldText) - 1);
+          } else if (previous !== type) {
+            $(`#${quoteID}`)
+              .children(`.${type}-display`)
+              .text((_, oldText) => parseInt(oldText) + 1);
+            $(`#${quoteID}`)
+              .children(`.${type === 'upvote' ? 'downvote' : 'upvote'}-display`)
+              .text((_, oldText) => parseInt(oldText) - 1);
           }
         }
       },
@@ -60,6 +64,31 @@ $(function () {
         console.error(err);
         alert('Error voting, please try again later');
       },
+    });
+  });
+  $('.sort-by').on('click', function () {
+    // Sort the list of quotes by the selected option
+    // The possible options are: date (default, which is the order of the ids), and votes (upvotes - downvotes)
+    const sortBy = $(this).attr('id');
+    const quotes = $('ul').children('li');
+    let sortedQuotes;
+    if (sortBy === 'date') {
+      sortedQuotes = quotes.sort((a, b) => {
+        return parseInt($(a).attr('id')) - parseInt($(b).attr('id'));
+      });
+    } else if (sortBy === 'votes') {
+      sortedQuotes = quotes.sort((a, b) => {
+        return (
+          parseInt($(b).children('.upvote-display').text()) -
+          parseInt($(b).children('.downvote-display').text()) -
+          (parseInt($(a).children('.upvote-display').text()) -
+            parseInt($(a).children('.downvote-display').text()))
+        );
+      });
+    }
+    $('ul').empty();
+    sortedQuotes.each(function () {
+      $('ul').append($(this));
     });
   });
 });
