@@ -29,12 +29,16 @@
     <ul>
       {{#each citat}}
         <li id='{{this.citatID}}'>{{this.quote}}</li>
-        <button class='btn btn-primary upvote'></button>
-        <button class='btn btn-danger downvote'></button>
+        <p class='d-inline upvote'>
+          {{this.upvotes}}
+        </p>
+        <button type='button' class='btn btn-primary upvote'></button>
+        <p class='d-inline downvote'>
+          {{this.downvotes}}
+        </p>
+        <button type='button' class='btn btn-danger downvote'></button>
         <br />
       {{/each}}
     </ul>
-    {{! Hidden element to store the user's information for access by the script }}
-    <input type='hidden' id='user' />
   </body>
 </html>

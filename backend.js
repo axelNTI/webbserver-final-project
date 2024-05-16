@@ -181,16 +181,19 @@ app.get('/account', (req, res) => {
 });
 
 app.get('/citat', async (req, res) => {
+  console.log('Fetching page');
   const quotes = await new Promise((resolve, reject) => {
     db.query('SELECT * FROM citat', (err, result) => {
       if (err) {
         reject(err);
       }
+      resolve(result);
     });
   }).catch((err) => {
     console.error(`%c${err}`, css.error);
     return res.status(500).json({ message: 'Server error' });
   });
+  console.log(quotes);
   const userVotes = await new Promise((resolve, reject) => {
     db.query(
       'SELECT * FROM uservotes WHERE userID = ?',
@@ -241,7 +244,7 @@ app.get('/citat', async (req, res) => {
   //   ).sort(([, a], [, b]) => b - a)
   // );
   res.render('citat', {
-    citat: citat,
+    citat: quotes,
     votes: userVotes,
     user: req.session,
     query: req.query,
@@ -654,12 +657,12 @@ app.post('/auth/discord', async (req, res) => {
     },
   });
   const discordUser = await userResult.body.json();
-  username = discordUser.username;
-  displayname = discordUser.global_name;
-  avatar = discordUser.avatar;
+  const username = discordUser.username;
+  const displayname = discordUser.global_name;
+  const avatar = `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`;
   req.session.username = username;
   req.session.displayname = displayname;
-  req.session.avatar = `https://cdn.discordapp.com/avatars/${discordUser.id}/${avatar}.png`;
+  req.session.avatar = avatar;
   req.session.linkedDiscord = true;
   req.session.save((err) => {
     if (err) {
@@ -673,7 +676,7 @@ app.post('/auth/discord', async (req, res) => {
       userID: req.session.userID,
       discordUsername: username,
       discordDisplayname: displayname,
-      discordAvatar: `https://cdn.discordapp.com/avatars/${discordUser.id}/${avatar}.png`,
+      discordAvatar: avatar,
     },
     (err, result) => {
       if (err) {
@@ -686,128 +689,256 @@ app.post('/auth/discord', async (req, res) => {
   return res.status(200).json({ message: 'Inloggad med Discord' });
 });
 
-app.post('/auth/vote', (req, res) => {
-  console.log(req.session);
-  console.log(req.body);
-  const { quote_id, type } = req.body;
-  if (!quote_id || !type) {
+app.post('/auth/vote', async (req, res) => {
+  const { quoteID, type } = req.body;
+  if (!quoteID || !type) {
     return res.status(400).json({ message: 'Ogiltig förfrågan' });
   }
-  console.log(req.session);
-  console.log(quote_id);
-  console.log(type);
-  while (true) {}
+  let uservote;
   switch (type) {
     case 'upvote':
       console.log('%cUpvote', css.information);
-      db.query(
-        'SELECT * FROM uservotes WHERE userID = ? AND quoteID = ?',
-        [req.session, message.id],
-        (err, result) => {
-          if (err) {
-            console.error(`%c${err}`, css.error);
-            return;
+      uservote = await new Promise((resolve, reject) => {
+        db.query(
+          'SELECT * FROM uservotes WHERE userID = ? AND quoteID = ?',
+          [req.session.userID, quoteID],
+          (err, result) => {
+            if (err) {
+              reject(err);
+            }
+            resolve(result);
           }
-          if (result.length > 0 && result.type === 'downvote') {
-            db.query(
-              'UPDATE citat SET upvotes = upvotes + 1, downvotes = downvotes - 1 WHERE id = ?; SET type = ? WHERE userID = ? AND quoteID = ?',
-              [message.id, 'upvote', message.userID, message.id],
-              (err, result) => {
-                if (err) {
-                  console.error(`%c${err}`, css.error);
-                  return;
-                }
+        );
+      }).catch((err) => {
+        console.error(`%c${err}`, css.error);
+        return res.status(500).json({ message: 'Server error' });
+      });
+      console.log(uservote);
+      if (uservote.length > 0 && uservote[0].type === 'downvote') {
+        await new Promise((resolve, reject) => {
+          db.query(
+            'UPDATE citat SET upvotes = upvotes + 1, downvotes = downvotes - 1 WHERE citatID = ?',
+            [quoteID],
+            (err, result) => {
+              if (err) {
+                reject(err);
               }
-            );
-          } else if (result.length > 0 && result.type === 'upvote') {
-            db.query(
-              'UPDATE citat SET upvotes = upvotes - 1 WHERE id = ?; DELETE FROM uservotes WHERE userID = ? AND quoteID = ?',
-              [message.id, req.session.userID, message.id],
-              (err, result) => {
-                if (err) {
-                  console.error(`%c${err}`, css.error);
-                  return;
-                }
+              resolve();
+            }
+          );
+        }).catch((err) => {
+          console.error(`%c${err}`, css.error);
+          return res.status(500).json({ message: 'Server error' });
+        });
+        await new Promise((resolve, reject) => {
+          db.query(
+            'UPDATE uservotes SET type = ? WHERE userID = ? AND quoteID = ?',
+            [type, req.session.userID, quoteID],
+            (err, result) => {
+              if (err) {
+                reject(err);
               }
-            );
-          } else if (result.length === 0) {
-            db.query(
-              'UPDATE citat SET upvotes = upvotes + 1 WHERE id = ?; INSERT INTO uservotes SET?',
-              [
-                message.id,
-                {
-                  userID: req.session.userID,
-                  quoteID: message.id,
-                  type: 'upvote',
-                },
-              ],
-              (err, result) => {
-                if (err) {
-                  console.error(`%c${err}`, css.error);
-                  return;
-                }
+              resolve();
+            }
+          );
+        }).catch((err) => {
+          console.error(`%c${err}`, css.error);
+          return res.status(500).json({ message: 'Server error' });
+        });
+        return res
+          .status(200)
+          .json({ message: 'Röstat', previous: 'downvote' });
+      } else if (uservote.length > 0 && uservote[0].type === 'upvote') {
+        await new Promise((resolve, reject) => {
+          db.query(
+            'UPDATE citat SET upvotes = upvotes - 1 WHERE citatID = ?',
+            [quoteID, req.session.userID, quoteID],
+            (err, result) => {
+              if (err) {
+                reject(err);
               }
-            );
-          }
-        }
-      );
-      break;
+              resolve();
+            }
+          );
+        }).catch((err) => {
+          console.error(`%c${err}`, css.error);
+          return res.status(500).json({ message: 'Server error' });
+        });
+        await new Promise((resolve, reject) => {
+          db.query(
+            'DELETE FROM uservotes WHERE userID = ? AND quoteID = ?',
+            [req.session.userID, quoteID],
+            (err, result) => {
+              if (err) {
+                reject(err);
+              }
+              resolve();
+            }
+          );
+        }).catch((err) => {
+          console.error(`%c${err}`, css.error);
+          return res.status(500).json({ message: 'Server error' });
+        });
+        return res.status(200).json({ message: 'Röstat', previous: 'upvote' });
+      } else if (uservote.length === 0) {
+        await new Promise((resolve, reject) => {
+          db.query(
+            'UPDATE citat SET upvotes = upvotes + 1 WHERE citatID = ?',
+            [quoteID, req.session.userID, quoteID, type],
+            (err, result) => {
+              if (err) {
+                reject(err);
+              }
+              resolve();
+            }
+          );
+        }).catch((err) => {
+          console.error(`%c${err}`, css.error);
+          return res.status(500).json({ message: 'Server error' });
+        });
+        await new Promise((resolve, reject) => {
+          db.query(
+            'INSERT INTO uservotes set? ',
+            { userID: req.session.userID, quoteID: quoteID, type: type },
+            (err, result) => {
+              if (err) {
+                reject(err);
+              }
+              resolve();
+            }
+          );
+        }).catch((err) => {
+          console.error(`%c${err}`, css.error);
+          return res.status(500).json({ message: 'Server error' });
+        });
+        return res.status(200).json({ message: 'Röstat', previous: null });
+      } else {
+        console.log('%cUnknown message', css.warning);
+        return res.status(400).json({ message: 'Ogiltig förfrågan' });
+      }
     case 'downvote':
       console.log('%cDownvote', css.information);
-      db.query(
-        'SELECT * FROM uservotes WHERE userID = ? AND quoteID = ?',
-        [req.session.userID, message.id],
-        (err, result) => {
-          if (err) {
-            console.error(`%c${err}`, css.error);
-            return;
+      uservote = await new Promise((resolve, reject) => {
+        db.query(
+          'SELECT * FROM uservotes WHERE userID = ? AND quoteID = ?',
+          [req.session.userID, quoteID],
+          (err, result) => {
+            if (err) {
+              reject(err);
+            }
+            resolve(result);
           }
-          if (result.length > 0 && result.type === 'upvote') {
-            db.query(
-              'UPDATE citat SET upvotes = upvotes - 1, downvotes = downvotes + 1 WHERE id = ?; SET type = ? WHERE userID = ? AND quoteID = ?',
-              [message.id, 'downvote', req.session.userID, message.id],
-              (err, result) => {
-                if (err) {
-                  console.error(`%c${err}`, css.error);
-                  return;
-                }
+        );
+      }).catch((err) => {
+        console.error(`%c${err}`, css.error);
+        return res.status(500).json({ message: 'Server error' });
+      });
+      console.log(uservote);
+      if (uservote.length > 0 && uservote[0].type === 'upvote') {
+        await new Promise((resolve, reject) => {
+          db.query(
+            'UPDATE citat SET upvotes = upvotes - 1, downvotes = downvotes + 1 WHERE citatID = ?',
+            [quoteID, type, req.session.userID, quoteID],
+            (err, result) => {
+              if (err) {
+                reject(err);
               }
-            );
-          } else if (result.length > 0 && result.type === 'downvote') {
-            db.query(
-              'UPDATE citat SET downvotes = downvotes - 1 WHERE id = ?; DELETE FROM uservotes WHERE userID = ? AND quoteID = ?',
-              [message.id, req.session.userID, message.id],
-              (err, result) => {
-                if (err) {
-                  console.error(`%c${err}`, css.error);
-                  return;
-                }
+              resolve();
+            }
+          );
+        }).catch((err) => {
+          console.error(`%c${err}`, css.error);
+          return res.status(500).json({ message: 'Server error' });
+        });
+        await new Promise((resolve, reject) => {
+          db.query(
+            'UPDATE uservotes SET type = ? WHERE userID = ? AND quoteID = ?',
+            [type, req.session.userID, quoteID],
+            (err, result) => {
+              if (err) {
+                reject(err);
               }
-            );
-          } else if (result.length === 0) {
-            db.query(
-              'UPDATE citat SET downvotes = downvotes + 1 WHERE id = ?; INSERT INTO uservotes SET?',
-              [
-                message.id,
-                {
-                  userID: req.session.userID,
-                  quoteID: message.id,
-                  type: 'downvote',
-                },
-              ],
-              (err, result) => {
-                if (err) {
-                  console.error(`%c${err}`, css.error);
-                  return;
-                }
+              resolve();
+            }
+          );
+        }).catch((err) => {
+          console.error(`%c${err}`, css.error);
+          return res.status(500).json({ message: 'Server error' });
+        });
+        return res.status(200).json({ message: 'Röstat', previous: 'upvote' });
+      } else if (uservote.length > 0 && uservote[0].type === 'downvote') {
+        await new Promise((resolve, reject) => {
+          db.query(
+            'UPDATE citat SET downvotes = downvotes - 1 WHERE citatID = ?',
+            [quoteID, req.session.userID, quoteID],
+            (err, result) => {
+              if (err) {
+                reject(err);
               }
-            );
-          }
-        }
-      );
-      break;
+              resolve();
+            }
+          );
+        }).catch((err) => {
+          console.error(`%c${err}`, css.error);
+          return res.status(500).json({ message: 'Server error' });
+        });
+        await new Promise((resolve, reject) => {
+          db.query(
+            'DELETE FROM uservotes WHERE userID = ? AND quoteID = ?',
+            [req.session.userID, quoteID],
+            (err, result) => {
+              if (err) {
+                reject(err);
+              }
+              resolve();
+            }
+          );
+        }).catch((err) => {
+          console.error(`%c${err}`, css.error);
+          return res.status(500).json({ message: 'Server error' });
+        });
+        return res
+          .status(200)
+          .json({ message: 'Röstat', previous: 'downvote' });
+      } else if (uservote.length === 0) {
+        await new Promise((resolve, reject) => {
+          db.query(
+            'UPDATE citat SET downvotes = downvotes + 1 WHERE citatID = ?',
+            [quoteID, req.session.userID, quoteID, type],
+            (err, result) => {
+              if (err) {
+                reject(err);
+              }
+              resolve();
+            }
+          );
+        }).catch((err) => {
+          console.error(`%c${err}`, css.error);
+          return res.status(500).json({ message: 'Server error' });
+        });
+        await new Promise((resolve, reject) => {
+          db.query(
+            'INSERT INTO uservotes set? ',
+            { userID: req.session.userID, quoteID: quoteID, type: type },
+            (err, result) => {
+              if (err) {
+                reject(err);
+              }
+              resolve();
+            }
+          );
+        }).catch((err) => {
+          console.error(`%c${err}`, css.error);
+          return res.status(500).json({ message: 'Server error' });
+        });
+        return res.status(200).json({ message: 'Röstat', previous: null });
+      } else {
+        console.log('%cUnknown message', css.warning);
+        return res.status(400).json({ message: 'Ogiltig förfrågan' });
+      }
     default:
       console.log('%cUnknown message', css.warning);
+      return res.status(400).json({ message: 'Ogiltig förfrågan' });
   }
 });
 

@@ -22,22 +22,39 @@ $(function () {
     );
   };
   $('button').on('click', function () {
-    // Get the id from the parent element
-    const quote_id = $(this).parent().attr('id');
-    const button_class = $(this).attr('class');
     if (!user.loggedIn) {
       alert('You must be logged in to vote');
       return;
     }
-    const type = button_class.includes('upvote') ? 'upvote' : 'downvote';
-    console.log(quote_id);
-    console.log(type);
+    const quoteID = $(this).prevAll('li').attr('id');
+    const type = $(this).attr('class').includes('upvote')
+      ? 'upvote'
+      : 'downvote';
     $.ajax({
       url: '/auth/vote',
       method: 'POST',
-      data: { quote_id: quote_id, type: type },
+      data: { quoteID: quoteID, type: type },
       success: function (data) {
         console.log(data);
+        if (data.error) {
+          alert(data.error);
+          return;
+        }
+        if (data.message === 'Röstat') {
+          // Add logic to update the vote count
+          // If the user has not voted on this quote before, add 1 to either upvotes or downvotes
+          // If the user has voted on this quote before and the vote type is the same, remove 1 from the corresponding vote type
+          // If the user has voted on this quote before and the vote type is different, add 1 to the corresponding vote type and remove 1 from the other vote type
+          // The information sent back from the server is message, and previous
+          // The only new information is previous, which is either upvotes, downvotes, or null
+          const previous = data.previous;
+          // type and quoteID are already defined
+
+          // If the user has not voted on this quote before
+          if (!previous) {
+            if
+          }
+        }
       },
       error: function (err) {
         console.error(err);
