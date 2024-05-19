@@ -10,6 +10,10 @@
     />
     <script
       defer
+      src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js'
+    ></script>
+    <script
+      defer
       src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js'
       integrity='sha384-BBtl+eGJRgqQAUMxJ7pMwbEyER4l1g+O15P+16Ep7Q9Q+zqX6gSbd85u4mG4QzX+'
       crossorigin='anonymous'
@@ -25,48 +29,79 @@
     <script defer src='/js/index.js'></script>
   </head>
   <body>
-    <header class='text-center'>
-      <h1 class='pb-2 mt-4 mb-2 border-bottom border-primary'>
+    <header class='text-center pb-4 mt-4 mb-2 border-bottom border-primary'>
+      <h1>
         Regeringen
       </h1>
     </header>
-    <section class='d-flex justify-content-end'>
-      <aside
-        class='border border-primary-subtle rounded w-15 d-flex flex-column align-items-center'
-      >
-        {{#if user.loggedIn}}
-          {{#if user.linkedDiscord}}
-            <img src='{{user.avatar}}' alt='' />
-            <p>{{user.user}}</p>
-            <p>Discord: {{user.displayname}}</p>
-          {{else}}
-            <img src='/images/default-avatar.png' alt='' />
-            <p>{{user.user}}</p>
-            <a href='/discordAuth'>Sync to Discord</a>
-          {{/if}}
-          <a href='/account'>
-            Account
-          </a>
+    <aside
+      class='border border-primary-subtle rounded d-flex flex-column align-items-center float-end'
+    >
+      {{#if user.loggedIn}}
+        {{#if user.linkedDiscord}}
+          <img src='{{user.avatar}}' alt='' />
+          <p>{{user.user}}</p>
+          <p>Discord: {{user.displayname}}</p>
         {{else}}
           <img src='/images/default-avatar.png' alt='' />
-          <a href='/login'>Sign in</a>
-          <a href='/register'>Sign up</a>
+          <p>{{user.user}}</p>
+          <a href='/discordAuth'>Sync to Discord</a>
         {{/if}}
-      </aside>
-    </section>
-    <nav class='navbar'>
-      <ul>
-        <li>
-          <a href='/'>
-            Home
+        <a href='/account'>
+          Account
+        </a>
+      {{else}}
+        <img src='/images/default-avatar.png' alt='' />
+        <a href='/login'>Sign in</a>
+        <a href='/register'>Sign up</a>
+      {{/if}}
+    </aside>
+    {{! Carousel for all subpages, only use semantic HTML elements }}
+    <main
+      class='container'
+      id='main'
+      role='main'
+      aria-label='Main content'
+      aria-live='polite'
+    >
+      <section class='row' aria-label='Carousel' aria-live='polite'>
+        <h2 class='col-12 text-center'>
+          Sidor
+        </h2>
+        <article class='col-12 col-md-6 col-lg-4 col-xl-3' aria-label='Members'>
+          <a href='/activity' class='col-12'>
+            <h3 class='text-center'>Activity</h3>
+            <p class='text-center'>
+              En sida för aktviteten av regeringensmedlemmarna.
+            </p>
           </a>
-        </li>
-        <li>
-          <a href='/login'>
-            Login
+        </article>
+        <article class='col-12 col-md-6 col-lg-4 col-xl-3' aria-label='Members'>
+          <a href='/citat' class='col-12'>
+            <h3 class='text-center'>Citat</h3>
+            <p class='text-center'>
+              En sida för citat som regeringen har sagt.
+            </p>
           </a>
-        </li>
-      </ul>
-    </nav>
+        </article>
+        <article class='col-12 col-md-6 col-lg-4 col-xl-3' aria-label='Members'>
+          <a href='/members' class='col-12'>
+            <h3 class='text-center'>Spotify</h3>
+            <p class='text-center'>
+              En sida för att se vad regeringen lyssnar på.
+            </p>
+          </a>
+        </article>
+        <article class='col-12 col-md-6 col-lg-4 col-xl-3' aria-label='Members'>
+          <a href='/screenshots' class='col-12'>
+            <h3 class='text-center'>Skärmbilder</h3>
+            <p class='text-center'>
+              En sida för att se skärmbilder som regeringen har tagit i
+              Minecraft.
+            </p>
+          </a>
+        </article>
+      </section>
+    </main>
   </body>
 </html>

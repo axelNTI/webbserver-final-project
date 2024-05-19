@@ -30,26 +30,31 @@
   </head>
   <body>
     <h1>Quotes</h1>
-    {{! Add menu to allow for sorting by either date written (id) or score (upvotes - downvotes) }}
-
-    <div class='dropdown'>
+    <section class='dropdown'>
       <button
         class='btn btn-secondary dropdown-toggle sort-by'
         type='button'
         data-bs-toggle='dropdown'
         aria-expanded='false'
       >
-        Sort by
+        Sort by: Date Written
       </button>
       <ul class='dropdown-menu'>
-        <li><a class='dropdown-item' href='#'>Date written</a></li>
-        <li><a class='dropdown-item' href='#'>Score</a></li>
+        <li>
+          <button type='button' class='dropdown-item' id='sort-by-id'>
+            Date Written
+          </button>
+        </li>
+        <li>
+          <button type='button' class='dropdown-item' id='sort-by-score'>
+            Score
+          </button>
+        </li>
       </ul>
-    </div>
-
-    <ul>
+    </section>
+    <ul id='quotes'>
       {{#each citat}}
-        <li id='{{this.citatID}}'>
+        <li id='{{this.citatID}}' class='quote-li'>
           <p class='d-inline quote'>
             {{this.quote}}
           </p>

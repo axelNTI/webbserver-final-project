@@ -10,13 +10,13 @@ const {
   GatewayIntentBits,
   ActivityType,
 } = require('discord.js'); // Apache-2.0
-const { SpotifyApi } = require('@spotify/web-api-ts-sdk'); // Apache
-const { read } = require('fs'); // ISC
+// const { SpotifyApi } = require('@spotify/web-api-ts-sdk'); // Apache
+// const { read } = require('fs'); // ISC
 const session = require('express-session'); // MIT
 const { request } = require('undici'); // MIT
-const Handlebars = require('handlebars'); // MIT
-const parseurl = require('parseurl'); // MIT
-const escapeHtml = require('escape-html'); // MIT
+// const Handlebars = require('handlebars'); // MIT
+// const parseurl = require('parseurl'); // MIT
+// const escapeHtml = require('escape-html'); // MIT
 const WebSocket = require('ws'); // MIT
 const hbs = require('hbs'); // MIT
 
@@ -139,24 +139,28 @@ db.connect(async (err) => {
     }).catch((err) => {
       console.error(`%c${err}`, css.error);
     });
+    const promises = [];
     tables
       .map((table) => table.Tables_in_regeringen)
       .forEach((table) => {
-        db.query(`ALTER TABLE ${table} IMPORT TABLESPACE`, (err, result) => {
-          if (err && err.code === 'ER_TABLESPACE_EXISTS') {
-            console.log(
-              `%cTablespace already exists for ${table}`,
-              css.success
-            );
-            return;
-          }
-          if (err) {
-            console.error(`%c${err}`, css.error);
-            return;
-          }
-          console.log(`%cTablespace has been added to ${table}`, css.warning);
+        const promise = new Promise((resolve, reject) => {
+          db.query(`ALTER TABLE ${table} IMPORT TABLESPACE`, (err, result) => {
+            if (err && err.code === 'ER_TABLESPACE_EXISTS') {
+              resolve();
+            } else if (err) {
+              reject(err);
+            } else {
+              console.log(`%cTablespace for ${table} added`, css.warning);
+              resolve();
+            }
+          });
+        }).catch((err) => {
+          console.error(`%c${err}`, css.error);
         });
+        promises.push(promise);
       });
+    await Promise.all(promises);
+    console.log('%cAll tablespaces have been added', css.success);
   }
 });
 
@@ -670,22 +674,28 @@ app.post('/auth/discord', async (req, res) => {
       return res.status(500).json({ message: 'Server error' });
     }
   });
-  db.query(
-    'INSERT INTO discordusers SET?',
-    {
-      userID: req.session.userID,
-      discordUsername: username,
-      discordDisplayname: displayname,
-      discordAvatar: avatar,
-    },
-    (err, result) => {
-      if (err) {
-        console.error(`%c${err}`, css.error);
-        return;
+  await new Promise((resolve, reject) => {
+    db.query(
+      'INSERT INTO discordusers SET?',
+      {
+        userID: req.session.userID,
+        discordUsername: username,
+        discordDisplayname: displayname,
+        discordAvatar: avatar,
+      },
+      (err, result) => {
+        if (err) {
+          console.error(`%c${err}`, css.error);
+          reject(err);
+        }
+        console.log(`%cDiscord user added: ${username}`, css.information);
+        resolve();
       }
-      console.log(`%cDiscord user added: ${result}`, css.information);
-    }
-  );
+    );
+  }).catch((err) => {
+    console.error(`%c${err}`, css.error);
+    return;
+  });
   return res.status(200).json({ message: 'Inloggad med Discord' });
 });
 
@@ -1061,59 +1071,72 @@ client.on(Events.ClientReady, async (readyClient) => {
 });
 
 client.on(Events.MessageCreate, async (message) => {
-  if (
-    message.channelId === process.env.DISCORD_CHANNEL_ID_CITAT_DEPARTEMENTET
-  ) {
-    if (message.content.match(userRegex) === null) {
-      console.log(`%c${message.content}`, css.error);
-      return;
-    }
-    db.query(
-      'INSERT INTO citat SET ?',
-      {
-        upvotes: 0,
-        downvotes: 0,
-        quote: message.content,
-        discordUsername: message.author.username,
-      },
-      (err, result) => {
-        if (err) {
-          console.error(`%c${err}`, css.error);
-          return;
-        }
+  switch (message.channelId) {
+    case process.env.DISCORD_CHANNEL_ID_CITAT_DEPARTEMENTET:
+      if (message.system) {
+        return;
       }
-    );
-    console.log(`%cCitat inlagt: ${message.content}`, css.information);
-    connections.forEach((pageId, ws) => {
-      if (pageId === 'citat' && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(message));
+      if (message.content.match(userRegex) === null) {
+        console.log(`%c${message.content}`, css.error);
+        return;
       }
-    });
-    return;
-  } else if (message.channelId === process.env.DISCORD_CHANNEL_ID_SCREENSHOTS) {
-    message.attachments.forEach((attachment) => {
-      db.query(
-        'INSERT INTO screenshots SET ?',
-        {
-          url: attachment.url,
-          discordUsername: message.author.username,
-          messageID: message.id,
-        },
-        (err, result) => {
-          if (err) {
-            console.error(`%c${err}`, css.error);
-            return;
+      await new Promise((resolve, reject) => {
+        db.query(
+          'INSERT INTO citat SET ?',
+          {
+            upvotes: 0,
+            downvotes: 0,
+            quote: message.content,
+            discordUsername: message.author.username,
+          },
+          (err, result) => {
+            if (err) {
+              reject(err);
+            }
+            resolve();
           }
-        }
-      );
-      console.log(`%cScreenshot inlagt: ${attachment.url}`, css.information);
+        );
+      }).catch((err) => {
+        console.error(`%c${err}`, css.error);
+        return;
+      });
+      console.log(`%cCitat inlagt: ${message.content}`, css.information);
       connections.forEach((pageId, ws) => {
-        if (pageId === 'screenshots' && ws.readyState === WebSocket.OPEN) {
+        if (pageId === 'citat' && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify(message));
         }
       });
-    });
-    return;
+      return;
+    case process.env.DISCORD_CHANNEL_ID_SCREENSHOTS:
+      const promises = [];
+      message.attachments.forEach((attachment) => {
+        const promise = new Promise((resolve, reject) => {
+          db.query(
+            'INSERT INTO screenshots SET ?',
+            {
+              url: attachment.url,
+              discordUsername: message.author.username,
+              messageID: message.id,
+            },
+            (err, result) => {
+              if (err) {
+                reject(err);
+              }
+              resolve();
+            }
+          );
+        }).catch((err) => {
+          console.error(`%c${err}`, css.error);
+          return;
+        });
+        promises.push(promise);
+      });
+      Promise.all(promises).then(() => {
+        console.log('%cScreenshots inlagda', css.information);
+      });
+      return;
+    default:
+      return;
   }
 });
 
@@ -1128,7 +1151,7 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
             .includes(activity.createdTimestamp)
       )
       .forEach((activity) => {
-        // Time kan bli negativt på grund av okänd anledning. Därför används Math.max för att undvika negativa värden.
+        // Tiden kan bli negativ på grund av okänd anledning. Därför används Math.max för att undvika detta.
         const time = Math.max(
           new Date().getTime() - activity.createdTimestamp,
           0

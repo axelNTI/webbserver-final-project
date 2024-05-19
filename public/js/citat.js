@@ -66,29 +66,30 @@ $(function () {
       },
     });
   });
-  $('.sort-by').on('click', function () {
-    // Sort the list of quotes by the selected option
-    // The possible options are: date (default, which is the order of the ids), and votes (upvotes - downvotes)
-    const sortBy = $(this).attr('id');
-    const quotes = $('ul').children('li');
-    let sortedQuotes;
-    if (sortBy === 'date') {
-      sortedQuotes = quotes.sort((a, b) => {
-        return parseInt($(a).attr('id')) - parseInt($(b).attr('id'));
-      });
-    } else if (sortBy === 'votes') {
-      sortedQuotes = quotes.sort((a, b) => {
-        return (
-          parseInt($(b).children('.upvote-display').text()) -
-          parseInt($(b).children('.downvote-display').text()) -
-          (parseInt($(a).children('.upvote-display').text()) -
-            parseInt($(a).children('.downvote-display').text()))
-        );
-      });
-    }
-    $('ul').empty();
-    sortedQuotes.each(function () {
-      $('ul').append($(this));
+  $('#sort-by-id').on('click', function () {
+    const sortedQuotes = $('.quote-li').sort(function (a, b) {
+      return parseInt($(a).attr('id')) - parseInt($(b).attr('id'));
     });
+    $('#quotes').empty();
+    sortedQuotes.each(function () {
+      $('#quotes').append($(this));
+    });
+    $('.sort-by').text('Sort by: Date Written');
+  });
+  $('#sort-by-score').on('click', function () {
+    const sortedQuotes = $('.quote-li').sort(function (a, b) {
+      const aScore =
+        parseInt($(a).children('.upvote-display').text()) -
+        parseInt($(a).children('.downvote-display').text());
+      const bScore =
+        parseInt($(b).children('.upvote-display').text()) -
+        parseInt($(b).children('.downvote-display').text());
+      return bScore - aScore;
+    });
+    $('#quotes').empty();
+    sortedQuotes.each(function () {
+      $('#quotes').append($(this));
+    });
+    $('.sort-by').text('Sort by: Score');
   });
 });
