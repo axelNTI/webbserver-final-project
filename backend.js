@@ -97,10 +97,8 @@ const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])[0-9a-zA-Z]{8,35}$/;
 const sqlInjectionRegex =
   /(\s*([\0\b\'\"\n\r\t\%\_\\]*\s*(((select\s*.+\s*from\s*.+)|(insert\s*.+\s*into\s*.+)|(update\s*.+\s*set\s*.+)|(delete\s*.+\s*from\s*.+)|(drop\s*.+)|(truncate\s*.+)|(alter\s*.+)|(exec\s*.+)|(\s*(all|any|not|and|between|in|like|or|some|contains|containsall|containskey)\s*.+[\=\>\<=\!\~]+.+)|(let\s+.+[\=]\s*.*)|(begin\s*.*\s*end)|(\s*[\/\*]+\s*.*\s*[\*\/]+)|(\s*(\-\-)\s*.*\s+)|(\s*(contains|containsall|containskey)\s+.*)))(\s*[\;]\s*)*)+)/i;
 
-// Regex for finding if string contains a new line
 const newLineRegex = /\n/;
 
-// Regex for finding the string between a dash and the first of the following: [a new line or a comma or the end of the string or the string "om"]
 const userRegex = /(?<=["”“].*["”“] -).*?(?=\n|,| om| till| medan| som|$)/;
 
 const db = mysql.createConnection({
@@ -185,7 +183,6 @@ app.get('/account', (req, res) => {
 });
 
 app.get('/citat', async (req, res) => {
-  console.log('Fetching page');
   const quotes = await new Promise((resolve, reject) => {
     db.query('SELECT * FROM citat', (err, result) => {
       if (err) {
@@ -197,7 +194,6 @@ app.get('/citat', async (req, res) => {
     console.error(`%c${err}`, css.error);
     return res.status(500).json({ message: 'Server error' });
   });
-  console.log(quotes);
   const userVotes = await new Promise((resolve, reject) => {
     db.query(
       'SELECT * FROM uservotes WHERE userID = ?',
@@ -213,20 +209,20 @@ app.get('/citat', async (req, res) => {
     console.error(`%c${err}`, css.error);
     return res.status(500).json({ message: 'Server error' });
   });
-  console.log(userVotes);
-  const quoted = filteredMessages.flatMap((message) => {
-    const individuals = [];
-    const lines = message.content.split(newLineRegex);
-    lines.forEach((line) => {
-      const matches = line.match(userRegex);
-      if (matches) {
-        individuals.push(...matches.map((match) => match.trim()));
-      } else {
-        console.log(`%c${line}`, css.error);
-      }
+  const quoted = quotes
+    .flatMap((message) => {
+      const individuals = [];
+      const lines = message.quote.split(newLineRegex);
+      lines.forEach((line) => {
+        const matches = line.match(userRegex);
+        if (matches) {
+          individuals.push(...matches.map((match) => match.trim()));
+        } else {
+          console.log(`%c${line}`, css.error);
+        }
+      });
+      return individuals;
     });
-    return individuals;
-  });
   const quotedCount = Object.fromEntries(
     Object.entries(
       quoted.reduce((acc, user) => {
@@ -237,8 +233,8 @@ app.get('/citat', async (req, res) => {
   );
   const messageCount = Object.fromEntries(
     Object.entries(
-      filteredMessages
-        .map((message) => message.author)
+      quotes
+        .map((message) => message.discordUsername)
         .reduce((acc, user) => {
           acc[user.displayName] = (acc[user.displayName] || 0) + 1;
           return acc;
@@ -315,47 +311,49 @@ app.get('/spotify', async (req, res) => {
       console.error(`%c${err}`, css.error);
       return res.status(500).json({ message: 'Server error' });
     })
-    .then((spotify) => {
-      return spotify.map(async (song) => {
-        const artistIDs = await new Promise((resolve, reject) => {
-          db.query(
-            'SELECT artistID FROM artistsongs WHERE songID = ?',
-            [song.songID],
-            (err, result) => {
-              if (err) {
-                reject(err);
+    .then(async (spotify) => {
+      return await Promise.all(
+        spotify.map(async (song) => {
+          const artistIDs = await new Promise((resolve, reject) => {
+            db.query(
+              'SELECT artistID FROM artistsongs WHERE songID = ?',
+              [song.songID],
+              (err, result) => {
+                if (err) {
+                  reject(err);
+                }
+                resolve(result);
               }
-              resolve(result);
-            }
-          );
-        }).catch((err) => {
-          console.error(`%c${err}`, css.error);
-          return res.status(500).json({ message: 'Server error' });
-        });
-        const artists = await new Promise((resolve, reject) => {
-          db.query(
-            'SELECT * FROM artists WHERE artistID IN (?)',
-            [artistIDs],
-            (err, result) => {
-              if (err) {
-                reject(err);
+            );
+          }).catch((err) => {
+            console.error(`%c${err}`, css.error);
+            return res.status(500).json({ message: 'Server error' });
+          });
+          const artists = await new Promise((resolve, reject) => {
+            db.query(
+              'SELECT * FROM artists WHERE FIND_IN_SET(artistID, ?)',
+              [artistIDs.map((artist) => artist.artistID).join(',')],
+              (err, result) => {
+                if (err) {
+                  reject(err);
+                }
+                resolve(result);
               }
-              resolve(result);
-            }
-          );
-        }).catch((err) => {
-          console.error(`%c${err}`, css.error);
-          return res.status(500).json({ message: 'Server error' });
-        });
-        const hours = Math.floor(song.time / 3600000);
-        const minutes = Math.floor((song.time % 3600000) / 60000);
-        const seconds = Math.floor((song.time % 60000) / 1000);
-        return {
-          song: song.song,
-          artist: artists,
-          time: `${hours}h ${minutes}m ${seconds}s`,
-        };
-      });
+            );
+          }).catch((err) => {
+            console.error(`%c${err}`, css.error);
+            return res.status(500).json({ message: 'Server error' });
+          });
+          const hours = Math.floor(song.time / 3600000);
+          const minutes = Math.floor((song.time % 3600000) / 60000);
+          const seconds = Math.floor((song.time % 60000) / 1000);
+          return {
+            song: song.song,
+            artist: artists,
+            time: `${hours}h ${minutes}m ${seconds}s`,
+          };
+        })
+      );
     });
   const artists = await new Promise((resolve, reject) => {
     db.query('SELECT artistName, time FROM artists', (err, result) => {
@@ -364,10 +362,27 @@ app.get('/spotify', async (req, res) => {
       }
       resolve(result);
     });
-  }).catch((err) => {
-    console.error(`%c${err}`, css.error);
-    return res.status(500).json({ message: 'Server error' });
-  });
+  })
+    .catch((err) => {
+      console.error(`%c${err}`, css.error);
+      return res.status(500).json({ message: 'Server error' });
+    })
+    .then((artists) => {
+      return artists
+        .sort((a, b) => b.time - a.time)
+        .map((artist) => {
+          const hours = Math.floor(artist.time / 3600000);
+          const minutes = Math.floor((artist.time % 3600000) / 60000);
+          const seconds = Math.floor((artist.time % 60000) / 1000);
+          return {
+            artistName: artist.artistName,
+            time: `${hours}h ${minutes}m ${seconds}s`,
+          };
+        });
+    });
+
+  console.log(spotify);
+  console.log(artists);
   res.render('spotify', {
     spotify: spotify,
     artists: artists,
@@ -550,75 +565,101 @@ app.post('/auth/register', (req, res) => {
   });
 });
 
-app.post('/auth/login', (req, res) => {
-  const { name, password } = req.body;
-  if (!name || !password) {
+app.post('/auth/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
     return res.status(400).json({ message: 'Fyll i alla fält' });
   }
-  db.query(
-    'SELECT name, email, password FROM users',
-    [name],
-    async (err, result) => {
+  if (sqlInjectionRegex.test(username)) {
+    return res.status(400).json({ message: 'Ogiltiga tecken' });
+  }
+  const users = await new Promise((resolve, reject) => {
+    db.query(
+      'SELECT name, email, password FROM users',
+      [username],
+      (err, result) => {
+        if (err) {
+          reject(err);
+        }
+        resolve(result);
+      }
+    );
+  }).catch((err) => {
+    console.error(`%c${err}`, css.error);
+    return res.status(500).json({ message: 'Server error' });
+  });
+  const name_array_login = users.map((user) => user.name);
+  const password_array_login = users.map((user) => user.password);
+  const email_array_login = users.map((user) => user.email);
+  if (emailRegex.test(username) && !email_array_login.includes(username)) {
+    return res.status(400).json({ message: 'Fel inloggningsuppgifter' });
+  }
+  if (!emailRegex.test(username) && !name_array_login.includes(username)) {
+    return res.status(400).json({ message: 'Fel inloggningsuppgifter' });
+  }
+  let index;
+  if (emailRegex.test(username)) {
+    index = email_array_login.indexOf(username);
+  } else {
+    index = name_array_login.indexOf(username);
+  }
+  const hashedPassword = password_array_login[index];
+  const passwordMatch = await bcrypt.compare(password, hashedPassword);
+  if (!passwordMatch) {
+    return res.status(400).json({ message: 'Fel inloggningsuppgifter' });
+  }
+  req.session.user = name_array_login[index];
+  req.session.email = email_array_login[index];
+  req.session.userID = index;
+  req.session.loggedIn = true;
+  req.session.save((err) => {
+    if (err) {
+      console.error(`%c${err}`, css.error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+  });
+  const discordUsers = await new Promise((resolve, reject) => {
+    db.query(
+      'SELECT * FROM discordusers WHERE userID = ?',
+      [req.session.userID],
+      (err, result) => {
+        if (err) {
+          reject(err);
+        }
+        resolve(result);
+      }
+    );
+  }).catch((err) => {
+    console.error(`%c${err}`, css.error);
+    return res.status(500).json({ message: 'Server error' });
+  });
+  let data;
+  if (discordUsers.length > 0) {
+    req.session.linkedDiscord = true;
+    req.session.username = discordUsers[0].discordUsername;
+    req.session.displayname = discordUsers[0].discordDisplayname;
+    req.session.avatar = discordUsers[0].discordAvatar;
+    req.session.save((err) => {
       if (err) {
         console.error(`%c${err}`, css.error);
         return res.status(500).json({ message: 'Server error' });
       }
-      const name_array_login = result.map((user) => user.name);
-      const password_array_login = result.map((user) => user.password);
-      const email_array_login = result.map((user) => user.email);
-      if (emailRegex.test(name) && !email_array_login.includes(name)) {
-        return res.status(400).json({ message: 'Fel inloggningsuppgifter' });
-      }
-      if (!emailRegex.test(name) && !name_array_login.includes(name)) {
-        return res.status(400).json({ message: 'Fel inloggningsuppgifter' });
-      }
-      let index;
-      if (emailRegex.test(name)) {
-        index = email_array_login.indexOf(name);
-      } else {
-        index = name_array_login.indexOf(name);
-      }
-      const hashedPassword = password_array_login[index];
-      const passwordMatch = await bcrypt.compare(password, hashedPassword);
-      if (!passwordMatch) {
-        return res.status(400).json({ message: 'Fel inloggningsuppgifter' });
-      }
-      req.session.user = name_array_login[index];
-      req.session.email = email_array_login[index];
-      req.session.userID = index;
-      req.session.loggedIn = true;
-      req.session.save((err) => {
-        if (err) {
-          console.error(`%c${err}`, css.error);
-          return res.status(500).json({ message: 'Server error' });
-        }
-        db.query(
-          'SELECT * FROM discordusers WHERE userID = ?',
-          [req.session.userID],
-          (err, result) => {
-            if (err) {
-              console.error(`%c${err}`, css.error);
-              return res.status(500).json({ message: 'Server error' });
-            }
-            if (result.length > 0) {
-              req.session.linkedDiscord = true;
-              req.session.username = result[0].discordUsername;
-              req.session.displayname = result[0].discordDisplayname;
-              req.session.avatar = result[0].discordAvatar;
-              req.session.save((err) => {
-                if (err) {
-                  console.error(`%c${err}`, css.error);
-                  return res.status(500).json({ message: 'Server error' });
-                }
-              });
-            }
-          }
-        );
-        console.log(`%cInloggad: ${name}`, css.information);
-        return res.status(200).json({ message: 'Inloggad' });
-      });
-    }
-  );
+    });
+    data = {
+      user: req.session.user,
+      displayname: req.session.displayname,
+      avatar: req.session.avatar,
+      loggedIn: req.session.loggedIn,
+      linkedDiscord: req.session.linkedDiscord,
+    };
+  } else {
+    data = {
+      user: req.session.user,
+      loggedIn: req.session.loggedIn,
+    };
+  }
+  console.log(`%cInloggad: ${username}`, css.information);
+  return res.status(200).json({ message: 'Inloggad', data: data });
 });
 
 app.post('/auth/logout', (req, res) => {
@@ -688,7 +729,7 @@ app.post('/auth/discord', async (req, res) => {
         client_secret: process.env.DISCORD_CLIENT_SECRET,
         code,
         grant_type: 'authorization_code',
-        redirect_uri: `http://localhost:4000/discordAuth`,
+        redirect_uri: `http://localhost:4000/`,
         scope: 'identify',
       }).toString(),
       headers: {
@@ -703,12 +744,14 @@ app.post('/auth/discord', async (req, res) => {
     },
   });
   const discordUser = await userResult.body.json();
+  console.log(discordUser);
   const username = discordUser.username;
   const displayname = discordUser.global_name;
   const avatar = `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`;
   req.session.username = username;
   req.session.displayname = displayname;
   req.session.avatar = avatar;
+
   req.session.linkedDiscord = true;
   req.session.save((err) => {
     if (err) {
@@ -738,7 +781,12 @@ app.post('/auth/discord', async (req, res) => {
     console.error(`%c${err}`, css.error);
     return;
   });
-  return res.status(200).json({ message: 'Inloggad med Discord' });
+  let data = {
+    user: req.session.user,
+    displayname: displayname,
+    avatar: avatar,
+  };
+  return res.status(200).json({ message: 'Inloggad med Discord', data: data });
 });
 
 app.post('/auth/vote', async (req, res) => {
@@ -1183,7 +1231,6 @@ client.on(Events.MessageCreate, async (message) => {
 });
 
 client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
-  // TODO: Fixa att databasen uppdateras om man har en låt på repeat.
   if (oldActivities && oldActivities.activities) {
     oldActivities.activities
       .filter(
@@ -1198,42 +1245,26 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
           new Date().getTime() - activity.createdTimestamp,
           0
         );
-        const activities = await new Promise((resolve, reject) => {
+        await new Promise((resolve, reject) => {
           db.query(
-            'SELECT * FROM activities WHERE name = ?',
-            [activity.name],
+            'INSERT INTO activities (name, time) VALUES (?, ?) ON DUPLICATE KEY UPDATE time = time + VALUES(time)',
+            [activity.name, time],
             (err, result) => {
               if (err) {
                 reject(err);
               }
-              resolve(result);
+              resolve();
             }
           );
         }).catch((err) => {
           console.error(`%c${err}`, css.error);
-          return;
+          return null;
         });
-        if (activities.length === 0) {
+        if (activity.name === 'Spotify') {
           await new Promise((resolve, reject) => {
             db.query(
-              'INSERT INTO activities SET?',
-              { name: activity.name, time: time },
-              (err, result) => {
-                if (err) {
-                  reject(err);
-                }
-                resolve();
-              }
-            );
-          }).catch((err) => {
-            console.error(`%c${err}`, css.error);
-            return;
-          });
-        } else {
-          await new Promise((resolve, reject) => {
-            db.query(
-              'UPDATE activities SET time = time + ? WHERE name = ?',
-              [time, activity.name],
+              'INSERT INTO spotify (song, mainArtist, time) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE time = time + VALUES(time)',
+              [activity.details, activity.state.split(';')[0], time],
               (err, result) => {
                 if (err) {
                   reject(err);
@@ -1245,12 +1276,29 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
             console.error(`%c${err}`, css.error);
             return null;
           });
-        }
-        if (activity.name === 'Spotify') {
-          const song = await new Promise((resolve, reject) => {
+          await Promise.all(
+            activity.state.split(';').map(async (artist) => {
+              return new Promise((resolve, reject) => {
+                db.query(
+                  'INSERT INTO artists (artistName, time) VALUES (?, ?) ON DUPLICATE KEY UPDATE time = time + VALUES(time)',
+                  [artist, time],
+                  (err, result) => {
+                    if (err) {
+                      reject(err);
+                    }
+                    resolve();
+                  }
+                );
+              }).catch((err) => {
+                console.error(`%c${err}`, css.error);
+                return null;
+              });
+            })
+          );
+          const songID = await new Promise((resolve, reject) => {
             db.query(
-              'SELECT * FROM spotify WHERE song = ?',
-              [activity.details],
+              'SELECT songID FROM spotify WHERE song = ? AND mainArtist = ?',
+              [activity.details, activity.state.split(';')[0]],
               (err, result) => {
                 if (err) {
                   reject(err);
@@ -1262,11 +1310,11 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
             console.error(`%c${err}`, css.error);
             return null;
           });
-          const artists = await Promise.all(
+          const artistIDs = await Promise.all(
             activity.state.split(';').map(async (artist) => {
               return new Promise((resolve, reject) => {
                 db.query(
-                  'SELECT * FROM artists WHERE artistName = ?',
+                  'SELECT artistID FROM artists WHERE artistName = ?',
                   [artist],
                   (err, result) => {
                     if (err) {
@@ -1281,15 +1329,13 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
               });
             })
           );
-          if (song.length === 0) {
+          const songIDValue = songID[0].songID;
+          const artistIDsValues = artistIDs.map((artist) => artist[0].artistID);
+          artistIDsValues.forEach(async (artistID) => {
             await new Promise((resolve, reject) => {
               db.query(
-                'INSERT INTO spotify SET?',
-                {
-                  song: activity.details,
-                  mainArtist: activity.state.split(';')[0],
-                  time: time,
-                },
+                'INSERT INTO artistsongs (songID, artistID) VALUES (?, ?) ON DUPLICATE KEY UPDATE songID = songID',
+                [songIDValue, artistID],
                 (err, result) => {
                   if (err) {
                     reject(err);
@@ -1301,77 +1347,6 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
               console.error(`%c${err}`, css.error);
               return null;
             });
-            const artistsongs = await new Promise((resolve, reject) => {
-              db.query('SELECT * FROM artistsongs', (err, result) => {
-                if (err) {
-                  reject(err);
-                }
-                resolve(result);
-              });
-            }).catch((err) => {
-              console.error(`%c${err}`, css.error);
-              return null;
-            });
-            console.log(artistsongs);
-            console.log(artists);
-            console.log(artists[0]);
-            console.log(song);
-            while (true) {}
-          } else {
-            await new Promise((resolve, reject) => {
-              db.query(
-                'UPDATE spotify SET time = time + ? WHERE song = ? AND mainArtist = ?',
-                [time, activity.details, activity.state.split(';')[0]],
-                (err, result) => {
-                  if (err) {
-                    reject(err);
-                  }
-                  resolve();
-                }
-              );
-            }).catch((err) => {
-              console.error(`%c${err}`, css.error);
-              return;
-            });
-          }
-          console.log(activity.state.split(';'));
-          activity.state.split(';').forEach(async (artist) => {
-            console.log(artist);
-            console.log(artists);
-            const artistID = artists.length > 0 ? artists[0].artistID : null;
-            if (artists.length === 0) {
-              await new Promise((resolve, reject) => {
-                db.query(
-                  'INSERT INTO artists SET?',
-                  { artistName: artist, time: time },
-                  (err, result) => {
-                    if (err) {
-                      reject(err);
-                    }
-                    resolve();
-                  }
-                );
-              }).catch((err) => {
-                console.error(`%c${err}`, css.error);
-                return;
-              });
-            } else {
-              await new Promise((resolve, reject) => {
-                db.query(
-                  'UPDATE artists SET time = time + ? WHERE artistName = ?',
-                  [time, artist],
-                  (err, result) => {
-                    if (err) {
-                      reject(err);
-                    }
-                    resolve();
-                  }
-                );
-              }).catch((err) => {
-                console.error(`%c${err}`, css.error);
-                return;
-              });
-            }
           });
         }
       });

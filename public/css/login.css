@@ -20,14 +20,8 @@ body {
   & > section {
     display: none;
     z-index: 5;
-    /* Have it in the middle of the page */
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    /* Make it look like a card */
-    background-color: black;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0px 0px 10px 0px rgba(0, 0, 0, 0.1);
+    & > section {
+      display: none;
+    }
   }
 }

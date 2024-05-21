@@ -24,46 +24,108 @@
       integrity='sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4='
       crossorigin='anonymous'
     ></script>
+    <script defer src='/js/login.js'></script>
+    <link rel='stylesheet' href='/css/login.css' />
     <title>Spotify</title>
-    <link rel='stylesheet' href='/css/spotify.css' />
     <script defer src='/js/spotify.js'></script>
   </head>
-  <body>
-    <header class='text-center'>
-      <h1 class='pb-2 mt-4 mb-2 border-bottom border-primary'>
+  <body class='bg-black bg-gradient text-white'>
+    <header class='text-center pb-4 mt-4 mb-2 border-bottom border-primary'>
+      <h1>
         Regeringen
       </h1>
     </header>
-    <section class='d-flex justify-content-end'>
-      <aside class='text-center border border-primary-subtle'>
-        {{#if user.loggedIn}}
-          {{#if user.linkedDiscord}}
-            <img src='{{user.avatar}}' alt='' />
-            <p>{{user.user}}</p>
-            <p>Discord: {{user.displayname}}</p>
-          {{else}}
-            <img src='/images/default-avatar.png' alt='' />
-            <p>{{user.user}}</p>
-            <a href='/discordAuth'>Sync to Discord</a>
-          {{/if}}
-          <a href='/account'>
-            Account
-          </a>
+    <aside
+      class='border border-success rounded d-flex flex-column align-items-center float-end'
+    >
+      {{#if user.loggedIn}}
+        {{#if user.linkedDiscord}}
+          <img src='{{user.avatar}}' alt='' />
+          <p>{{user.user}}</p>
+          <p>Discord: {{user.displayname}}</p>
         {{else}}
           <img src='/images/default-avatar.png' alt='' />
-          <a href='/login'>Sign in</a>
-          <a href='/register'>Sign up</a>
+          <p>{{user.user}}</p>
+          <a
+            href='https://discord.com/oauth2/authorize?client_id=1222824481571999856&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A4000%2F&scope=identify'
+          >Länka Discord</a>
         {{/if}}
-      </aside>
+        <a class='mb-2' href='/account'>
+          Account
+        </a>
+      {{else}}
+        <img src='/images/default-avatar.png' alt='' />
+        <button
+          type='button'
+          id='login-button'
+          class='btn btn-link link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-info'
+        >
+          <p class='d-inline'>
+            Sign in
+          </p>
+        </button>
+        <a
+          href='/register'
+          class='link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-info mb-3'
+          target='_blank'
+        >Sign up</a>
+      {{/if}}
+    </aside>
+    <section
+      id='login-popup'
+      class='position-fixed bg-black bg-gradient text-white top-50 start-50 translate-middle border border-dark-subtle rounded'
+    >
+      <h3 class='card-header'>Logga in</h3>
+      <form class='card-body'>
+        <label for='username' class='form-label'>Användarnamn eller email:</label>
+        <input type='text' id='username' name='username' class='form-control' />
+        <label for='password' class='form-label'>Lösenord:</label>
+        <input
+          type='password'
+          id='password'
+          name='password'
+          class='form-control'
+        />
+        <button
+          type='button'
+          id='submit-login'
+          class='btn btn-primary mt-2'
+        >Logga in</button>
+        <button
+          type='button'
+          id='close-login'
+          class='btn btn-primary mt-2'
+        >Stäng</button>
+      </form>
+      <section id='response' class='card-footer alert'>
+      </section>
     </section>
-    <main class='container'>
-      <h2>Activity</h2>
-      <p>Here is a list of recent activity:</p>
-      <ul>
-        {{#each spotify}}
-          <li>{{this.song}} - {{this.artist}}: {{this.time}}</li>
-        {{/each}}
-      </ul>
+    <main class='container d-flex flex-row'>
+      <section class='w-50'>
+        <ul id='song-list' class='list-group list-group-flush'>
+          <hr />
+          {{#each spotify}}
+            <li class='d-flex flex-row justify-content-between'>
+              <p class='d-inline my-2 mx-3 songName'>{{this.song}}</p>
+              <p class='d-inline my-2 mx-3 artistList'>{{#each this.artist}}{{this.artistName}}†{{/each}}</p>
+              <p class='d-inline my-2 mx-3 songTime'>{{this.time}}</p>
+            </li>
+            <hr />
+          {{/each}}
+        </ul>
+      </section>
+      <section class='w-50'>
+        <ul class='w-50' id='artist-list' class='list-group list-group-flush'>
+          <hr />
+          {{#each artists}}
+            <li class='d-flex flex-row justify-content-between'>
+              <p class='d-inline my-2 mx-3 artistName'>{{this.artistName}}</p>
+              <p class='d-inline my-2 mx-3 artistTime'>{{this.time}}</p>
+            </li>
+            <hr />
+          {{/each}}
+        </ul>
+      </section>
     </main>
   </body>
 </html>

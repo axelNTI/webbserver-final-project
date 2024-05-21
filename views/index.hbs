@@ -24,8 +24,9 @@
       integrity='sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4='
       crossorigin='anonymous'
     ></script>
+    <script defer src='/js/login.js'></script>
+    <link rel='stylesheet' href='/css/login.css' />
     <title>Regeringen</title>
-    <link rel='stylesheet' href='/css/index.css' />
     <script defer src='/js/index.js'></script>
   </head>
   <body class='bg-black bg-gradient text-white'>
@@ -45,9 +46,11 @@
         {{else}}
           <img src='/images/default-avatar.png' alt='' />
           <p>{{user.user}}</p>
-          <a href='/discordAuth'>Sync to Discord</a>
+          <a
+            href='https://discord.com/oauth2/authorize?client_id=1222824481571999856&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A4000%2F&scope=identify'
+          >Länka Discord</a>
         {{/if}}
-        <a href='/account'>
+        <a class='mb-2' href='/account'>
           Account
         </a>
       {{else}}
@@ -68,16 +71,34 @@
         >Sign up</a>
       {{/if}}
     </aside>
-    <section id='login-popup' class='d-flex position-fixed'>
-      {{! Add a popup for login information using only semantic elements}}
-      <form>
-        <label for='username'>Username or email</label>
-        <input type='text' id='username' name='username' required />
-        <label for='password'>Password</label>
-        <input type='password' id='password' name='password' required />
-        <button type='submit'>Login</button>
+    <section
+      id='login-popup'
+      class='position-fixed bg-black bg-gradient text-white top-50 start-50 translate-middle border border-dark-subtle rounded'
+    >
+      <h3 class='card-header'>Logga in</h3>
+      <form class='card-body'>
+        <label for='username' class='form-label'>Användarnamn eller email:</label>
+        <input type='text' id='username' name='username' class='form-control' />
+        <label for='password' class='form-label'>Lösenord:</label>
+        <input
+          type='password'
+          id='password'
+          name='password'
+          class='form-control'
+        />
+        <button
+          type='button'
+          id='submit-login'
+          class='btn btn-primary mt-2'
+        >Logga in</button>
+        <button
+          type='button'
+          id='close-login'
+          class='btn btn-primary mt-2'
+        >Stäng</button>
       </form>
-      <button id='close'>Close</button>
+      <section id='response' class='card-footer alert'>
+      </section>
     </section>
     <main
       class='container'
@@ -91,61 +112,61 @@
           Sidor
         </h2>
         <article
-          class='col-12 col-md-6 col-lg-4 col-xl-5 border border-info rounded p-5 m-5'
+          class='col-12 col-md-6 col-lg-4 col-xl-5 border border-info rounded m-5'
           aria-label='Members'
         >
           <a
             href='/activity'
-            class='col-12 link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-light'
+            class='col-12 link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-light p-5'
             target='_blank'
           >
-            <h3 class='text-center'>Aktivitet</h3>
-            <p class='text-center'>
+            <h3 class='text-center pt-5'>Aktivitet</h3>
+            <p class='text-center pb-5'>
               En sida för aktviteten av regeringensmedlemmarna.
             </p>
           </a>
         </article>
         <article
-          class='col-12 col-md-6 col-lg-4 col-xl-5 border border-info rounded p-5 m-5'
+          class='col-12 col-md-6 col-lg-4 col-xl-5 border border-info rounded m-5'
           aria-label='Members'
         >
           <a
             href='/citat'
-            class='col-12 link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-light'
+            class='col-12 link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-light p-5'
             target='_blank'
           >
-            <h3 class='text-center'>Citat</h3>
-            <p class='text-center'>
+            <h3 class='text-center pt-5'>Citat</h3>
+            <p class='text-center pb-5'>
               En sida för citat som regeringen har sagt.
             </p>
           </a>
         </article>
         <article
-          class='col-12 col-md-6 col-lg-4 col-xl-5 border border-info rounded p-5 m-5'
+          class='col-12 col-md-6 col-lg-4 col-xl-5 border border-info rounded m-5'
           aria-label='Members'
         >
           <a
-            href='/members'
-            class='col-12 link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-light'
+            href='/spotify'
+            class='col-12 link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-light p-5'
             target='_blank'
           >
-            <h3 class='text-center'>Spotify</h3>
-            <p class='text-center'>
+            <h3 class='text-center pt-5'>Spotify</h3>
+            <p class='text-center pb-5'>
               En sida för att se vad regeringen lyssnar på.
             </p>
           </a>
         </article>
         <article
-          class='col-12 col-md-6 col-lg-4 col-xl-5 border border-info rounded p-5 m-5'
+          class='col-12 col-md-6 col-lg-4 col-xl-5 border border-info rounded m-5'
           aria-label='Members'
         >
           <a
             href='/screenshots'
-            class='col-12 link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-light'
+            class='col-12 link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-light p-5'
             target='_blank'
           >
-            <h3 class='text-center'>Skärmbilder</h3>
-            <p class='text-center'>
+            <h3 class='text-center pt-5'>Skärmbilder</h3>
+            <p class='text-center pb-5'>
               En sida för att se skärmbilder som regeringen har tagit i
               Minecraft.
             </p>
