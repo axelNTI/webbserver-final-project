@@ -1185,17 +1185,65 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
             .map((new_activity) => new_activity.createdTimestamp)
             .includes(activity.createdTimestamp)
       )
-      .forEach((activity) => {
+      .forEach(async (activity) => {
         // Tiden kan bli negativ på grund av okänd anledning. Därför används Math.max för att undvika detta.
         const time = Math.max(
           new Date().getTime() - activity.createdTimestamp,
           0
         );
-        const activities = (async () => {
-          return await new Promise((resolve, reject) => {
+        const activities = await new Promise((resolve, reject) => {
+          db.query(
+            'SELECT * FROM activities WHERE name = ?',
+            [activity.name],
+            (err, result) => {
+              if (err) {
+                reject(err);
+              }
+              resolve(result);
+            }
+          );
+        }).catch((err) => {
+          console.error(`%c${err}`, css.error);
+          return;
+        });
+        if (activities.length === 0) {
+          await new Promise((resolve, reject) => {
             db.query(
-              'SELECT * FROM activities WHERE name = ?',
-              [activity.name],
+              'INSERT INTO activities SET?',
+              { name: activity.name, time: time },
+              (err, result) => {
+                if (err) {
+                  reject(err);
+                }
+                resolve();
+              }
+            );
+          }).catch((err) => {
+            console.error(`%c${err}`, css.error);
+            return;
+          });
+        } else {
+          await new Promise((resolve, reject) => {
+            db.query(
+              'UPDATE activities SET time = time + ? WHERE name = ?',
+              [time, activity.name],
+              (err, result) => {
+                if (err) {
+                  reject(err);
+                }
+                resolve();
+              }
+            );
+          }).catch((err) => {
+            console.error(`%c${err}`, css.error);
+            return null;
+          });
+        }
+        if (activity.name === 'Spotify') {
+          const song = await new Promise((resolve, reject) => {
+            db.query(
+              'SELECT * FROM spotify WHERE song = ?',
+              [activity.details],
               (err, result) => {
                 if (err) {
                   reject(err);
@@ -1203,115 +1251,15 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
                 resolve(result);
               }
             );
-          });
-        })().catch((err) => {
-          console.error(`%c${err}`, css.error);
-          return;
-        });
-        if (activities.length === 0) {
-          (async () => {
-            await new Promise((resolve, reject) => {
-              db.query(
-                'INSERT INTO activities SET?',
-                { name: activity.name, time: time },
-                (err, result) => {
-                  if (err) {
-                    reject(err);
-                  }
-                  resolve();
-                }
-              );
-            });
-          })().catch((err) => {
+          }).catch((err) => {
             console.error(`%c${err}`, css.error);
-            return;
+            return null;
           });
-        } else {
-          (async () => {
-            await new Promise((resolve, reject) => {
-              db.query(
-                'UPDATE activities SET time = time + ? WHERE name = ?',
-                [time, activity.name],
-                (err, result) => {
-                  if (err) {
-                    reject(err);
-                  }
-                  resolve();
-                }
-              );
-            });
-          })().catch((err) => {
-            console.error(`%c${err}`, css.error);
-            return;
-          });
-        }
-        if (activity.name === 'Spotify') {
-          const spotifyActivities = (async () => {
-            return await new Promise((resolve, reject) => {
-              db.query(
-                'SELECT * FROM spotify WHERE song = ?',
-                [activity.details],
-                (err, result) => {
-                  if (err) {
-                    reject(err);
-                  }
-                  resolve(result);
-                }
-              );
-            });
-          })().catch((err) => {
-            console.error(`%c${err}`, css.error);
-            return;
-          });
-          const songID =
-            spotifyActivities.length > 0 ? spotifyActivities[0].songID : null;
-          if (spotifyActivities.length === 0) {
-            async () => {
-              await new Promise((resolve, reject) => {
+          const artists = await Promise.all(
+            activity.state.split(';').map(async (artist) => {
+              return new Promise((resolve, reject) => {
                 db.query(
-                  'INSERT INTO spotify SET?',
-                  {
-                    song: activity.details,
-                    mainArtist: activity.state.split(';')[0],
-                    time: time,
-                  },
-                  (err, result) => {
-                    if (err) {
-                      reject(err);
-                    }
-                    resolve();
-                  }
-                );
-              })().catch((err) => {
-                console.error(`%c${err}`, css.error);
-                return;
-              });
-            };
-          } else {
-            async () => {
-              await new Promise((resolve, reject) => {
-                db.query(
-                  'UPDATE spotify SET time = time + ? WHERE song = ? AND mainArtist = ?',
-                  [time, activity.details, activity.state.split(';')[0]],
-                  (err, result) => {
-                    if (err) {
-                      reject(err);
-                    }
-                    resolve();
-                  }
-                );
-              })().catch((err) => {
-                console.error(`%c${err}`, css.error);
-                return;
-              });
-            };
-          }
-          activity.state.split(';').forEach((artist) => {
-            const artists = (async () => {
-              return await new Promise((resolve, reject) => {
-                // Error: Unknown column 'artist' in 'where clause' TODO: Fixa detta ASAP.
-                db.query(
-                  'SELECT * FROM artists WHERE artist = ?',
+                  'SELECT * FROM artists WHERE artistName = ?',
                   [artist],
                   (err, result) => {
                     if (err) {
@@ -1320,70 +1268,102 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
                     resolve(result);
                   }
                 );
+              }).catch((err) => {
+                console.error(`%c${err}`, css.error);
+                return null;
               });
-            })().catch((err) => {
+            })
+          );
+          if (song.length === 0) {
+            await new Promise((resolve, reject) => {
+              db.query(
+                'INSERT INTO spotify SET?',
+                {
+                  song: activity.details,
+                  mainArtist: activity.state.split(';')[0],
+                  time: time,
+                },
+                (err, result) => {
+                  if (err) {
+                    reject(err);
+                  }
+                  resolve();
+                }
+              );
+            }).catch((err) => {
+              console.error(`%c${err}`, css.error);
+              return null;
+            });
+            const artistsongs = await new Promise((resolve, reject) => {
+              db.query('SELECT * FROM artistsongs', (err, result) => {
+                if (err) {
+                  reject(err);
+                }
+                resolve(result);
+              });
+            }).catch((err) => {
+              console.error(`%c${err}`, css.error);
+              return null;
+            });
+            console.log(artistsongs);
+            console.log(artists);
+            console.log(artists[0]);
+            console.log(song);
+            while (true) {}
+          } else {
+            await new Promise((resolve, reject) => {
+              db.query(
+                'UPDATE spotify SET time = time + ? WHERE song = ? AND mainArtist = ?',
+                [time, activity.details, activity.state.split(';')[0]],
+                (err, result) => {
+                  if (err) {
+                    reject(err);
+                  }
+                  resolve();
+                }
+              );
+            }).catch((err) => {
               console.error(`%c${err}`, css.error);
               return;
             });
+          }
+          console.log(activity.state.split(';'));
+          activity.state.split(';').forEach(async (artist) => {
+            console.log(artist);
+            console.log(artists);
             const artistID = artists.length > 0 ? artists[0].artistID : null;
             if (artists.length === 0) {
-              async () => {
-                await new Promise((resolve, reject) => {
-                  db.query(
-                    'INSERT INTO artist SET?',
-                    {
-                      artist: artist,
-                      time: time,
-                    },
-                    (err, result) => {
-                      if (err) {
-                        reject(err);
-                      }
-                      resolve();
+              await new Promise((resolve, reject) => {
+                db.query(
+                  'INSERT INTO artists SET?',
+                  { artistName: artist, time: time },
+                  (err, result) => {
+                    if (err) {
+                      reject(err);
                     }
-                  );
-                })().catch((err) => {
-                  console.error(`%c${err}`, css.error);
-                  return;
-                });
-              };
+                    resolve();
+                  }
+                );
+              }).catch((err) => {
+                console.error(`%c${err}`, css.error);
+                return;
+              });
             } else {
-              async () => {
-                await new Promise((resolve, reject) => {
-                  db.query(
-                    'UPDATE artists SET time = time + ? WHERE artist = ?',
-                    [time, artist],
-                    (err, result) => {
-                      if (err) {
-                        reject(err);
-                      }
-                      resolve();
+              await new Promise((resolve, reject) => {
+                db.query(
+                  'UPDATE artists SET time = time + ? WHERE artistName = ?',
+                  [time, artist],
+                  (err, result) => {
+                    if (err) {
+                      reject(err);
                     }
-                  );
-                })().catch((err) => {
-                  console.error(`%c${err}`, css.error);
-                  return;
-                });
-              };
-            }
-            if (!songID || !artistID) {
-              async () => {
-                await new Promise((resolve, reject) => {
-                  db.query(
-                    'INSERT INTO artistsongs SET?',
-                    { song: songID, artist: artistID },
-                    (err, result) => {
-                      if (err) {
-                        reject(err);
-                      }
-                      resolve();
-                    }
-                  );
-                }).catch((err) => {
-                  console.error(`%c${err}`, css.error);
-                  return;
-                });
-              };
+                    resolve();
+                  }
+                );
+              }).catch((err) => {
+                console.error(`%c${err}`, css.error);
+                return;
+              });
             }
           });
         }
