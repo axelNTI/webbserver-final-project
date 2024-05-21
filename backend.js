@@ -215,7 +215,6 @@ app.get('/citat', async (req, res) => {
   });
   console.log(userVotes);
 
-  // res.json(result);
   // const quoted = filteredMessages.flatMap((message) => {
   //   const individuals = [];
   //   const lines = message.content.split(newLineRegex);
@@ -317,16 +316,52 @@ app.get('/spotify', async (req, res) => {
     })
     .then((spotify) => {
       return spotify.map((song) => {
+        const artistIDs = async () => {
+          return await new Promise((resolve, reject) => {
+            db.query(
+              'SELECT artist FROM spotifyartists WHERE songID = ?',
+              [song.songID],
+              (err, result) => {
+                if (err) {
+                  reject(err);
+                }
+                resolve(result);
+              }
+            );
+          }).catch((err) => {
+            console.error(`%c${err}`, css.error);
+            return res.status(500).json({ message: 'Server error' });
+          });
+        };
+        const artists = async () => {
+          return await new Promise((resolve, reject) => {
+            db.query(
+              'SELECT * FROM artists WHERE artistID IN (?)',
+              [artistIDs],
+              (err, result) => {
+                if (err) {
+                  reject(err);
+                }
+                resolve(result);
+              }
+            );
+          }).catch((err) => {
+            console.error(`%c${err}`, css.error);
+            return res.status(500).json({ message: 'Server error' });
+          });
+        };
+
         const hours = Math.floor(song.time / 3600000);
         const minutes = Math.floor((song.time % 3600000) / 60000);
         const seconds = Math.floor((song.time % 60000) / 1000);
         return {
           song: song.song,
-          artist: song.artist,
+          artist: artists,
           time: `${hours}h ${minutes}m ${seconds}s`,
         };
       });
     });
+
   res.render('spotify', {
     spotify: spotify,
     user: req.session,
@@ -1214,8 +1249,8 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
           const spotifyActivities = (async () => {
             return await new Promise((resolve, reject) => {
               db.query(
-                'SELECT * FROM spotify WHERE song = ? AND artist = ?',
-                [activity.details, activity.state],
+                'SELECT * FROM spotify WHERE song = ?',
+                [activity.details],
                 (err, result) => {
                   if (err) {
                     reject(err);
@@ -1228,6 +1263,8 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
             console.error(`%c${err}`, css.error);
             return;
           });
+          const songID =
+            spotifyActivities.length > 0 ? spotifyActivities[0].songID : null;
           if (spotifyActivities.length === 0) {
             async () => {
               await new Promise((resolve, reject) => {
@@ -1235,7 +1272,7 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
                   'INSERT INTO spotify SET?',
                   {
                     song: activity.details,
-                    artist: activity.state,
+                    mainArtist: activity.state.split(';')[0],
                     time: time,
                   },
                   (err, result) => {
@@ -1254,8 +1291,8 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
             async () => {
               await new Promise((resolve, reject) => {
                 db.query(
-                  'UPDATE spotify SET time = time + ? WHERE song = ? AND artist = ?',
-                  [time, activity.details, activity.state],
+                  'UPDATE spotify SET time = time + ? WHERE song = ? AND mainArtist = ?',
+                  [time, activity.details, activity.state.split(';')[0]],
                   (err, result) => {
                     if (err) {
                       reject(err);
@@ -1269,6 +1306,86 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
               });
             };
           }
+          activity.state.split(';').forEach((artist) => {
+            const artists = (async () => {
+              return await new Promise((resolve, reject) => {
+                // Error: Unknown column 'artist' in 'where clause' TODO: Fixa detta ASAP.
+                db.query(
+                  'SELECT * FROM artists WHERE artist = ?',
+                  [artist],
+                  (err, result) => {
+                    if (err) {
+                      reject(err);
+                    }
+                    resolve(result);
+                  }
+                );
+              });
+            })().catch((err) => {
+              console.error(`%c${err}`, css.error);
+              return;
+            });
+            const artistID = artists.length > 0 ? artists[0].artistID : null;
+            if (artists.length === 0) {
+              async () => {
+                await new Promise((resolve, reject) => {
+                  db.query(
+                    'INSERT INTO artist SET?',
+                    {
+                      artist: artist,
+                      time: time,
+                    },
+                    (err, result) => {
+                      if (err) {
+                        reject(err);
+                      }
+                      resolve();
+                    }
+                  );
+                })().catch((err) => {
+                  console.error(`%c${err}`, css.error);
+                  return;
+                });
+              };
+            } else {
+              async () => {
+                await new Promise((resolve, reject) => {
+                  db.query(
+                    'UPDATE artists SET time = time + ? WHERE artist = ?',
+                    [time, artist],
+                    (err, result) => {
+                      if (err) {
+                        reject(err);
+                      }
+                      resolve();
+                    }
+                  );
+                })().catch((err) => {
+                  console.error(`%c${err}`, css.error);
+                  return;
+                });
+              };
+            }
+            if (!songID || !artistID) {
+              async () => {
+                await new Promise((resolve, reject) => {
+                  db.query(
+                    'INSERT INTO artistsongs SET?',
+                    { song: songID, artist: artistID },
+                    (err, result) => {
+                      if (err) {
+                        reject(err);
+                      }
+                      resolve();
+                    }
+                  );
+                }).catch((err) => {
+                  console.error(`%c${err}`, css.error);
+                  return;
+                });
+              };
+            }
+          });
         }
       });
   }
