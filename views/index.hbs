@@ -28,14 +28,14 @@
     <link rel='stylesheet' href='/css/index.css' />
     <script defer src='/js/index.js'></script>
   </head>
-  <body>
+  <body class='bg-black bg-gradient text-white'>
     <header class='text-center pb-4 mt-4 mb-2 border-bottom border-primary'>
       <h1>
         Regeringen
       </h1>
     </header>
     <aside
-      class='border border-primary-subtle rounded d-flex flex-column align-items-center float-end'
+      class='border border-success rounded d-flex flex-column align-items-center float-end'
     >
       {{#if user.loggedIn}}
         {{#if user.linkedDiscord}}
@@ -52,11 +52,33 @@
         </a>
       {{else}}
         <img src='/images/default-avatar.png' alt='' />
-        <a href='/login'>Sign in</a>
-        <a href='/register'>Sign up</a>
+        <button
+          type='button'
+          id='login-button'
+          class='btn btn-link link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-info'
+        >
+          <p class='d-inline'>
+            Sign in
+          </p>
+        </button>
+        <a
+          href='/register'
+          class='link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-info mb-3'
+          target='_blank'
+        >Sign up</a>
       {{/if}}
     </aside>
-    {{! Carousel for all subpages, only use semantic HTML elements }}
+    <section id='login-popup' class='d-flex position-fixed'>
+      {{! Add a popup for login information using only semantic elements}}
+      <form>
+        <label for='username'>Username or email</label>
+        <input type='text' id='username' name='username' required />
+        <label for='password'>Password</label>
+        <input type='password' id='password' name='password' required />
+        <button type='submit'>Login</button>
+      </form>
+      <button id='close'>Close</button>
+    </section>
     <main
       class='container'
       id='main'
@@ -65,35 +87,63 @@
       aria-live='polite'
     >
       <section class='row' aria-label='Carousel' aria-live='polite'>
-        <h2 class='col-12 text-center'>
+        <h2 class='col-12 text-center pb-5 pt-3'>
           Sidor
         </h2>
-        <article class='col-12 col-md-6 col-lg-4 col-xl-3' aria-label='Members'>
-          <a href='/activity' class='col-12'>
-            <h3 class='text-center'>Activity</h3>
+        <article
+          class='col-12 col-md-6 col-lg-4 col-xl-5 border border-info rounded p-5 m-5'
+          aria-label='Members'
+        >
+          <a
+            href='/activity'
+            class='col-12 link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-light'
+            target='_blank'
+          >
+            <h3 class='text-center'>Aktivitet</h3>
             <p class='text-center'>
               En sida för aktviteten av regeringensmedlemmarna.
             </p>
           </a>
         </article>
-        <article class='col-12 col-md-6 col-lg-4 col-xl-3' aria-label='Members'>
-          <a href='/citat' class='col-12'>
+        <article
+          class='col-12 col-md-6 col-lg-4 col-xl-5 border border-info rounded p-5 m-5'
+          aria-label='Members'
+        >
+          <a
+            href='/citat'
+            class='col-12 link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-light'
+            target='_blank'
+          >
             <h3 class='text-center'>Citat</h3>
             <p class='text-center'>
               En sida för citat som regeringen har sagt.
             </p>
           </a>
         </article>
-        <article class='col-12 col-md-6 col-lg-4 col-xl-3' aria-label='Members'>
-          <a href='/members' class='col-12'>
+        <article
+          class='col-12 col-md-6 col-lg-4 col-xl-5 border border-info rounded p-5 m-5'
+          aria-label='Members'
+        >
+          <a
+            href='/members'
+            class='col-12 link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-light'
+            target='_blank'
+          >
             <h3 class='text-center'>Spotify</h3>
             <p class='text-center'>
               En sida för att se vad regeringen lyssnar på.
             </p>
           </a>
         </article>
-        <article class='col-12 col-md-6 col-lg-4 col-xl-3' aria-label='Members'>
-          <a href='/screenshots' class='col-12'>
+        <article
+          class='col-12 col-md-6 col-lg-4 col-xl-5 border border-info rounded p-5 m-5'
+          aria-label='Members'
+        >
+          <a
+            href='/screenshots'
+            class='col-12 link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-light'
+            target='_blank'
+          >
             <h3 class='text-center'>Skärmbilder</h3>
             <p class='text-center'>
               En sida för att se skärmbilder som regeringen har tagit i

@@ -214,41 +214,42 @@ app.get('/citat', async (req, res) => {
     return res.status(500).json({ message: 'Server error' });
   });
   console.log(userVotes);
-
-  // const quoted = filteredMessages.flatMap((message) => {
-  //   const individuals = [];
-  //   const lines = message.content.split(newLineRegex);
-  //   lines.forEach((line) => {
-  //     const matches = line.match(userRegex);
-  //     if (matches) {
-  //       individuals.push(...matches.map((match) => match.trim()));
-  //     } else {
-  //       console.log(`%c${line}`, css.error);
-  //     }
-  //   });
-  //   return individuals;
-  // });
-  // const quotedCount = Object.fromEntries(
-  //   Object.entries(
-  //     quoted.reduce((acc, user) => {
-  //       acc[user] = (acc[user] || 0) + 1;
-  //       return acc;
-  //     }, {})
-  //   ).sort(([, a], [, b]) => b - a)
-  // );
-  // const messageCount = Object.fromEntries(
-  //   Object.entries(
-  //     filteredMessages
-  //       .map((message) => message.author)
-  //       .reduce((acc, user) => {
-  //         acc[user.displayName] = (acc[user.displayName] || 0) + 1;
-  //         return acc;
-  //       }, {})
-  //   ).sort(([, a], [, b]) => b - a)
-  // );
+  const quoted = filteredMessages.flatMap((message) => {
+    const individuals = [];
+    const lines = message.content.split(newLineRegex);
+    lines.forEach((line) => {
+      const matches = line.match(userRegex);
+      if (matches) {
+        individuals.push(...matches.map((match) => match.trim()));
+      } else {
+        console.log(`%c${line}`, css.error);
+      }
+    });
+    return individuals;
+  });
+  const quotedCount = Object.fromEntries(
+    Object.entries(
+      quoted.reduce((acc, user) => {
+        acc[user] = (acc[user] || 0) + 1;
+        return acc;
+      }, {})
+    ).sort(([, a], [, b]) => b - a)
+  );
+  const messageCount = Object.fromEntries(
+    Object.entries(
+      filteredMessages
+        .map((message) => message.author)
+        .reduce((acc, user) => {
+          acc[user.displayName] = (acc[user.displayName] || 0) + 1;
+          return acc;
+        }, {})
+    ).sort(([, a], [, b]) => b - a)
+  );
   res.render('citat', {
     citat: quotes,
     votes: userVotes,
+    quoted: quotedCount,
+    messages: messageCount,
     user: req.session,
     query: req.query,
   });
@@ -315,42 +316,37 @@ app.get('/spotify', async (req, res) => {
       return res.status(500).json({ message: 'Server error' });
     })
     .then((spotify) => {
-      return spotify.map((song) => {
-        const artistIDs = async () => {
-          return await new Promise((resolve, reject) => {
-            db.query(
-              'SELECT artist FROM spotifyartists WHERE songID = ?',
-              [song.songID],
-              (err, result) => {
-                if (err) {
-                  reject(err);
-                }
-                resolve(result);
+      return spotify.map(async (song) => {
+        const artistIDs = await new Promise((resolve, reject) => {
+          db.query(
+            'SELECT artistID FROM artistsongs WHERE songID = ?',
+            [song.songID],
+            (err, result) => {
+              if (err) {
+                reject(err);
               }
-            );
-          }).catch((err) => {
-            console.error(`%c${err}`, css.error);
-            return res.status(500).json({ message: 'Server error' });
-          });
-        };
-        const artists = async () => {
-          return await new Promise((resolve, reject) => {
-            db.query(
-              'SELECT * FROM artists WHERE artistID IN (?)',
-              [artistIDs],
-              (err, result) => {
-                if (err) {
-                  reject(err);
-                }
-                resolve(result);
+              resolve(result);
+            }
+          );
+        }).catch((err) => {
+          console.error(`%c${err}`, css.error);
+          return res.status(500).json({ message: 'Server error' });
+        });
+        const artists = await new Promise((resolve, reject) => {
+          db.query(
+            'SELECT * FROM artists WHERE artistID IN (?)',
+            [artistIDs],
+            (err, result) => {
+              if (err) {
+                reject(err);
               }
-            );
-          }).catch((err) => {
-            console.error(`%c${err}`, css.error);
-            return res.status(500).json({ message: 'Server error' });
-          });
-        };
-
+              resolve(result);
+            }
+          );
+        }).catch((err) => {
+          console.error(`%c${err}`, css.error);
+          return res.status(500).json({ message: 'Server error' });
+        });
         const hours = Math.floor(song.time / 3600000);
         const minutes = Math.floor((song.time % 3600000) / 60000);
         const seconds = Math.floor((song.time % 60000) / 1000);
@@ -361,9 +357,20 @@ app.get('/spotify', async (req, res) => {
         };
       });
     });
-
+  const artists = await new Promise((resolve, reject) => {
+    db.query('SELECT artistName, time FROM artists', (err, result) => {
+      if (err) {
+        reject(err);
+      }
+      resolve(result);
+    });
+  }).catch((err) => {
+    console.error(`%c${err}`, css.error);
+    return res.status(500).json({ message: 'Server error' });
+  });
   res.render('spotify', {
     spotify: spotify,
+    artists: artists,
     user: req.session,
     query: req.query,
   });
