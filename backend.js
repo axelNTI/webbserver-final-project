@@ -164,14 +164,6 @@ app.get('/register', (req, res) => {
   res.render('register', { user: req.session, query: req.query });
 });
 
-app.get('/login', (req, res) => {
-  res.render('login', { user: req.session, query: req.query });
-});
-
-app.get('/discordAuth', (req, res) => {
-  res.render('discordAuth', { user: req.session, query: req.query });
-});
-
 app.get('/account', (req, res) => {
   res.render('account', { user: req.session, query: req.query });
 });
@@ -224,21 +216,30 @@ app.get('/citat', async (req, res) => {
       }, {})
     ).sort(([, a], [, b]) => b - a)
   );
+  const quotesPerson = quotes.map((quote) => quote.discordUsername);
   const messageCount = Object.fromEntries(
     Object.entries(
-      quotes
-        .map((message) => message.discordUsername)
-        .reduce((acc, user) => {
-          acc[user.displayName] = (acc[user.displayName] || 0) + 1;
-          return acc;
-        }, {})
+      quotesPerson.reduce((acc, user) => {
+        acc[user] = (acc[user] || 0) + 1;
+        return acc;
+      }, {})
     ).sort(([, a], [, b]) => b - a)
   );
+  const messageCountArray = Object.entries(messageCount).map(
+    ([name, count]) => ({
+      name,
+      count,
+    })
+  );
+  const quotedCountArray = Object.entries(quotedCount).map(([name, count]) => ({
+    name,
+    count,
+  }));
   res.render('citat', {
     citat: quotes,
     votes: userVotes,
-    quoted: quotedCount,
-    messages: messageCount,
+    quoted: quotedCountArray,
+    messages: messageCountArray,
     user: req.session,
     query: req.query,
   });
@@ -373,9 +374,6 @@ app.get('/spotify', async (req, res) => {
           };
         });
     });
-
-  console.log(spotify);
-  console.log(artists);
   res.render('spotify', {
     spotify: spotify,
     artists: artists,
@@ -384,23 +382,27 @@ app.get('/spotify', async (req, res) => {
   });
 });
 
-app.get('/verify', (req, res) => {
+app.get('/verify', async (req, res) => {
   const { token } = req.query;
   if (!token) {
     return res.status(500).json({ message: 'Token saknas' });
   }
-  db.query(
-    'UPDATE users SET email_verified = 1 WHERE token = ?',
-    [token],
-    (err, result) => {
-      if (err) {
-        console.error(`%c${err}`, css.error);
-        return res.status(500).json({ message: 'Server error' });
+  await new Promise((resolve, reject) => {
+    db.query(
+      'UPDATE users SET email_verified = 1 WHERE token = ?',
+      [token],
+      (err, result) => {
+        if (err) {
+          reject(err);
+        }
+        resolve();
       }
-      console.log(`%cUser email verified: ${result}`, css.information);
-      return res.status(200).json({ message: 'Email verifierad' });
-    }
-  );
+    );
+  }).catch((err) => {
+    console.error(`%c${err}`, css.error);
+    return res.status(500).json({ message: 'Server error' });
+  });
+  res.redirect('http://localhost:4000');
 });
 
 app.get('/delete', (req, res) => {
@@ -418,10 +420,6 @@ app.get('/delete', (req, res) => {
   });
 });
 
-app.get('/auth', (req, res) => {
-  res.render('auth', { user: req.session, query: req.query });
-});
-
 app.get('/404', (req, res) => {
   res.render('404', { user: req.session, query: req.query });
 });
@@ -435,6 +433,7 @@ app.get('*', (req, res) => {
 });
 
 app.post('/auth/register', async (req, res) => {
+  console.log(req.body);
   const { name, email, password, password_confirm } = req.body;
   const result = await new Promise((resolve, reject) => {
     db.query('SELECT name, email, email_verified FROM users', (err, result) => {
@@ -471,23 +470,33 @@ app.post('/auth/register', async (req, res) => {
       subject: 'Bekräftelse av epostadress',
       text: `Klicka på länken för att bekräfta din epostadress: http://localhost:4000/verify?token=${token}`,
     };
-    transporter.sendMail(mailOptions, (err, info) => {
-      if (err) {
-        console.error(`%c${err}`, css.error);
-        return res.status(500).send('Server error');
-      }
-      console.log(`%cEmail sent: ${info.response}`, css.information);
+    await new Promise((resolve, reject) => {
+      transporter.sendMail(mailOptions, (err, info) => {
+        if (err) {
+          reject(err);
+        }
+        console.log(`%cEmail sent: ${info.response}`, css.information);
+        resolve();
+      });
+    }).catch((err) => {
+      console.error(`%c${err}`, css.error);
+      return res.status(500).send('Server error');
+    });
+    await new Promise((resolve, reject) => {
       db.query(
         'UPDATE users SET token = ? WHERE email = ?',
         [token, email],
         (err, result) => {
           if (err) {
-            console.error(`%c${err}`, css.error);
-            return res.status(500).json({ message: 'Server error' });
+            reject(err);
           }
           console.log(`%cUser token updated: ${result}`, css.success);
+          resolve();
         }
       );
+    }).catch((err) => {
+      console.error(`%c${err}`, css.error);
+      return res.status(500).json({ message: 'Server error' });
     });
     return res.status(400).json({
       message:

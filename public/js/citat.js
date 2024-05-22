@@ -1,6 +1,15 @@
-$(function () {
+$(async function () {
   const ws = new WebSocket('ws://localhost:8080?=citat');
-  let user;
+  ws.onmessage = function (event) {
+    $('ul').append(
+      '<li>' +
+        JSON.parse(event.data).content.replaceAll(/\n/g, '<br>') +
+        '</li><br>'
+    );
+  };
+  $('li').each(function () {
+    $(this).children('.quote').text().replaceAll(/\n/g, '<br>');
+  });
   const uservotes = $('#votes')
     .text()
     .split(' ')
@@ -21,27 +30,26 @@ $(function () {
       .removeClass('active')
       .attr('aria-pressed', 'false');
   });
-  $.ajax({
-    url: '/auth/userdata',
-    method: 'GET',
-    success: function (data) {
-      user = data;
-    },
-    error: function (err) {
-      console.error('Error fetching user data:', err);
-    },
+  const user = await new Promise((resolve, reject) => {
+    $.ajax({
+      url: '/auth/userdata',
+      method: 'GET',
+      success: function (data) {
+        resolve(data);
+      },
+      error: function (err) {
+        reject(err);
+      },
+    });
+  }).catch((err) => {
+    console.error(err);
+    alert('Error fetching user data');
   });
-  $('li').each(function () {
-    $(this).children('.quote').text().replaceAll(/\n/g, '<br>');
-  });
-  ws.onmessage = function (event) {
-    $('ul').append(
-      '<li>' +
-        JSON.parse(event.data).content.replaceAll(/\n/g, '<br>') +
-        '</li><br>'
-    );
-  };
-
+  if (user.loggedIn) {
+    console.log($('#taxel6146'));
+    console.log($(`#${user.username}`).text());
+    $(`#${user.username}`).text($(`#${user.username}`).text() + ' (Du)');
+  }
   $('.quote-vote').on('click', function () {
     if (!user.loggedIn) {
       alert('You must be logged in to vote');

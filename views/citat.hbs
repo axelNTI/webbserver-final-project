@@ -101,9 +101,45 @@
       <section id='response' class='card-footer alert'>
       </section>
     </section>
-    <main class='container'>
+    <main class='container d-flex flex-column'>
       <h3 class='my-4 mx-5'>Citat</h3>
-      <section class='d-flex flex-row justify-content-start'>
+      <section class='mb-5'>
+        <p class='mx-5 mb-4'>Antal gånger varje person har blivit citerad.</p>
+        <ul>
+          <hr />
+          {{#each quoted}}
+            <li class='d-flex flex-row justify-content-between'>
+              <p class='d-inline mx-3'>
+                {{this.name}}
+              </p>
+              <p class='d-inline mx-3'>
+                {{this.count}}
+              </p>
+
+            </li>
+            <hr />
+          {{/each}}
+        </ul>
+      </section>
+      <section class='my-5'>
+        <ul>
+          <hr />
+          {{#each messages}}
+            <li class='d-flex flex-row justify-content-between'>
+              <p class='d-inline mx-3' id='{{this.name}}'>
+                {{this.name}}
+              </p>
+              <p class='d-inline mx-3'>
+                {{this.count}}
+              </p>
+
+            </li>
+            <hr />
+          {{/each}}
+        </ul>
+      </section>
+
+      <section class='d-flex flex-row justify-content-start mt-5'>
         <section class='dropdown mx-5'>
           <button
             class='btn btn-secondary dropdown-toggle'
@@ -133,42 +169,44 @@
           </ul>
         </section>
       </section>
-      <ul id='quotes'>
-        <hr />
-        {{#each citat}}
-          <li
-            id='{{this.citatID}}'
-            class='quote-li d-flex flex-column justify-content-start'
-          >
-            <section>
-              <p class='d-inline quote my-2 mx-3'>
-                {{this.quote}}
-              </p>
-            </section>
-            <section class='d-flex flex-row'>
-              <p class='d-inline upvote-display my-2 ms-3 me-1'>
-                {{this.upvotes}}
-              </p>
-              <button
-                type='button'
-                class='btn btn-primary quote-vote upvote my-2 active'
-                data-bs-toggle='button'
-                aria-pressed='true'
-              ></button>
-              <p class='d-inline downvote-display my-2 ms-3 me-1'>
-                {{this.downvotes}}
-              </p>
-              <button
-                type='button'
-                class='btn btn-danger quote-vote downvote my-2 active'
-                data-bs-toggle='button'
-                aria-pressed='true'
-              ></button>
-            </section>
-          </li>
+      <section>
+        <ul id='quotes'>
           <hr />
-        {{/each}}
-      </ul>
+          {{#each citat}}
+            <li
+              id='{{this.citatID}}'
+              class='quote-li d-flex flex-column justify-content-start'
+            >
+              <section>
+                <p class='d-inline quote my-2 mx-3'>
+                  {{this.quote}}
+                </p>
+              </section>
+              <section class='d-flex flex-row'>
+                <p class='d-inline upvote-display my-2 ms-3 me-1'>
+                  {{this.upvotes}}
+                </p>
+                <button
+                  type='button'
+                  class='btn btn-primary quote-vote upvote my-2 active'
+                  data-bs-toggle='button'
+                  aria-pressed='true'
+                ></button>
+                <p class='d-inline downvote-display my-2 ms-3 me-1'>
+                  {{this.downvotes}}
+                </p>
+                <button
+                  type='button'
+                  class='btn btn-danger quote-vote downvote my-2 active'
+                  data-bs-toggle='button'
+                  aria-pressed='true'
+                ></button>
+              </section>
+            </li>
+            <hr />
+          {{/each}}
+        </ul>
+      </section>
     </main>
     <footer id='votes' class='d-none'>
       {{#each votes}}
