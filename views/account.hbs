@@ -24,20 +24,29 @@
       integrity='sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4='
       crossorigin='anonymous'
     ></script>
-    <title>Account</title>
-    <link rel='stylesheet' href='/css/account.css' />
-    <script defer src='/js/account.js'></script>
+    <link rel='stylesheet' href='/css/webkit.css' />
+    <title>Konto</title>
+    <script defer src='/js/index.js'></script>
   </head>
-  <body>
-    <h1>Account</h1>
-    {{#if user.loggedIn}}
-      <p>Logged in as {{user.user}}</p>
-      <p>Display name: {{user.displayname}}</p>
-      <p>Avatar: <img src='{{user.avatar}}' alt='{{user.displayname}}' /></p>
-      <a href='/logout'>Logout</a>
-    {{else}}
-      <p>Not logged in</p>
-      <a href='/login'>Login</a>
-    {{/if}}
+  <body class='bg-black bg-gradient text-white'>
+    <header class='text-center pb-4 mt-4 mb-2 border-bottom border-primary'>
+      <h1>
+        Regeringen
+      </h1>
+    </header>
+    <main
+      class='d-flex flex-column justify-content-center align-items-center text-white'
+    >
+      <section
+        class='text-center w-25 border border-success rounded p-3 bg-dark bg-gradient d-flex flex-column justify-content-center'
+      >
+        <h2>Konto</h2>
+        
+        <img src='{{user.avatar}}' alt='' class='w-50' />
+        <a class='alert alert-primary' href='/logout'>Logga ut</a>
+
+      </section>
+
+    </main>
   </body>
 </html>

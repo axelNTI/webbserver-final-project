@@ -434,127 +434,149 @@ app.get('*', (req, res) => {
   res.redirect('http://localhost:4000/404');
 });
 
-app.post('/auth/register', (req, res) => {
+app.post('/auth/register', async (req, res) => {
   const { name, email, password, password_confirm } = req.body;
-  db.query('SELECT name, email, email_verified FROM users', (err, result) => {
-    if (err) {
-      console.error(`%c${err}`, css.error);
-      return res.status(500).json({ message: 'Server error' });
-    }
-    const name_array = result.map((user) => user.name);
-    const email_array = result.map((user) => user.email);
-    const email_verified_array = result.map((user) => user.email_verified);
-    if (sqlInjectionRegex.test(name) || sqlInjectionRegex.test(email)) {
-      return res.status(400).json({ message: 'Ogiltiga tecken' });
-    }
-    if (!name || !email || !password || !password_confirm) {
-      return res.status(400).json({ message: 'Fyll i alla fält' });
-    }
-    if (name_array.includes(name)) {
-      return res.status(400).json({ message: 'Användarnamnet är upptaget' });
-    }
-    if (email_array.includes(email)) {
-      email_index = email_array.indexOf(email);
-      if (email_verified_array[email_index] === 1) {
-        return res.status(400).json({ message: 'Epostadressen är upptagen' });
+  const result = await new Promise((resolve, reject) => {
+    db.query('SELECT name, email, email_verified FROM users', (err, result) => {
+      if (err) {
+        reject(err);
       }
-      const token = crypto.randomBytes(32).toString('hex');
-      const mailOptions = {
-        from: process.env.EMAIL,
-        to: email,
-        subject: 'Bekräftelse av epostadress',
-        text: `Klicka på länken för att bekräfta din epostadress: http://localhost:4000/verify?token=${token}`,
-      };
-      transporter.sendMail(mailOptions, (err, info) => {
-        if (err) {
-          console.error(`%c${err}`, css.error);
-          return res.status(500).send('Server error');
-        }
-        console.log(`%cEmail sent: ${info.response}`, css.information);
-        db.query(
-          'UPDATE users SET token = ? WHERE email = ?',
-          [token, email],
-          (err, result) => {
-            if (err) {
-              console.error(`%c${err}`, css.error);
-              return res.status(500).json({ message: 'Server error' });
-            }
-            console.log(`%cUser token updated: ${result}`, css.success);
-          }
-        );
-      });
-      return res.status(400).json({
-        message:
-          'Epostadressen är upptagen, bekräfta den eller radera kontot om du inte registrerade det',
-      });
+      resolve(result);
+    });
+  }).catch((err) => {
+    console.error(`%c${err}`, css.error);
+    return res.status(500).json({ message: 'Server error' });
+  });
+  const name_array = result.map((user) => user.name);
+  const email_array = result.map((user) => user.email);
+  const email_verified_array = result.map((user) => user.email_verified);
+  if (sqlInjectionRegex.test(name) || sqlInjectionRegex.test(email)) {
+    return res.status(400).json({ message: 'Ogiltiga tecken' });
+  }
+  if (!name || !email || !password || !password_confirm) {
+    return res.status(400).json({ message: 'Fyll i alla fält' });
+  }
+  if (name_array.includes(name)) {
+    return res.status(400).json({ message: 'Användarnamnet är upptaget' });
+  }
+  if (email_array.includes(email)) {
+    email_index = email_array.indexOf(email);
+    if (email_verified_array[email_index] === 1) {
+      return res.status(400).json({ message: 'Epostadressen är upptagen' });
     }
-    if (password !== password_confirm) {
-      return res.status(400).json({ message: 'Lösenorden matchar inte' });
-    }
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: 'Ogiltig epostadress' });
-    }
-    if (emailRegex.test(name)) {
-      return res
-        .status(400)
-        .json({ message: 'Användarnamn får inte vara en epostadress' });
-    }
-    if (!passwordRegex.test(password)) {
-      return res.status(400).json({
-        message:
-          'Lösenordet måste innehålla mellan 8 och 35 tecken, varav minst en siffra, en stor bokstav och en liten bokstav',
-      });
-    }
-    bcrypt.genSalt(10, (err, salt) => {
+    const token = crypto.randomBytes(32).toString('hex');
+    const mailOptions = {
+      from: process.env.EMAIL,
+      to: email,
+      subject: 'Bekräftelse av epostadress',
+      text: `Klicka på länken för att bekräfta din epostadress: http://localhost:4000/verify?token=${token}`,
+    };
+    transporter.sendMail(mailOptions, (err, info) => {
       if (err) {
         console.error(`%c${err}`, css.error);
-        return res.status(500).json({ message: 'Server error' });
+        return res.status(500).send('Server error');
       }
-      bcrypt.hash(password, salt, (err, hashedPassword) => {
-        if (err) {
-          console.error(`%c${err}`, css.error);
-          return res.status(500).json({ message: 'Server error' });
-        }
-        const token = crypto.randomBytes(32).toString('hex');
-        db.query(
-          'INSERT INTO users SET?',
-          {
-            name: name,
-            email: email,
-            password: hashedPassword,
-            email_verified: 0,
-            token: token,
-          },
-          (err, result) => {
-            if (err) {
-              console.error(`%c${err}`, css.error);
-              return res.status(500).json({ message: 'Server error' });
-            }
-            console.log(
-              `%cUser ${name} registered: ${result}`,
-              css.information
-            );
-            const mailOptions = {
-              from: process.env.EMAIL,
-              to: email,
-              subject: 'Bekräftelse av epostadress',
-              text: `Klicka på länken för att bekräfta din epostadress: http://localhost:4000/verify?token=${token}`,
-            };
-            transporter.sendMail(mailOptions, (err, info) => {
-              if (err) {
-                console.error(`%c${err}`, css.error);
-                return res.status(500).send('Server error');
-              }
-              console.log('%cEmail sent: ' + info.response, css.information);
-              return res.status(200).json({
-                message:
-                  'Användare registrerad, bekräfta din epostadress för att bevara ditt konto',
-              });
-            });
+      console.log(`%cEmail sent: ${info.response}`, css.information);
+      db.query(
+        'UPDATE users SET token = ? WHERE email = ?',
+        [token, email],
+        (err, result) => {
+          if (err) {
+            console.error(`%c${err}`, css.error);
+            return res.status(500).json({ message: 'Server error' });
           }
-        );
-      });
+          console.log(`%cUser token updated: ${result}`, css.success);
+        }
+      );
     });
+    return res.status(400).json({
+      message:
+        'Epostadressen är upptagen, bekräfta den eller radera kontot om du inte registrerade det',
+    });
+  }
+  if (password !== password_confirm) {
+    return res.status(400).json({ message: 'Lösenorden matchar inte' });
+  }
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ message: 'Ogiltig epostadress' });
+  }
+  if (emailRegex.test(name)) {
+    return res
+      .status(400)
+      .json({ message: 'Användarnamn får inte vara en epostadress' });
+  }
+  if (!passwordRegex.test(password)) {
+    return res.status(400).json({
+      message:
+        'Lösenordet måste innehålla mellan 8 och 35 tecken, varav minst en siffra, en stor bokstav och en liten bokstav',
+    });
+  }
+  const salt = await new Promise((resolve, reject) => {
+    bcrypt.genSalt(10, (err, salt) => {
+      if (err) {
+        reject(err);
+      }
+      resolve(salt);
+    });
+  }).catch((err) => {
+    console.error(`%c${err}`, css.error);
+    return res.status(500).json({ message: 'Server error' });
+  });
+  const hashedPassword = await new Promise((resolve, reject) => {
+    bcrypt.hash(password, salt, (err, hashedPassword) => {
+      if (err) {
+        reject(err);
+      }
+      resolve(hashedPassword);
+    });
+  }).catch((err) => {
+    console.error(`%c${err}`, css.error);
+    return res.status(500).json({ message: 'Server error' });
+  });
+  const token = crypto.randomBytes(32).toString('hex');
+  await new Promise((resolve, reject) => {
+    db.query(
+      'INSERT INTO users SET?',
+      {
+        name: name,
+        email: email,
+        password: hashedPassword,
+        email_verified: 0,
+        token: token,
+      },
+      (err, result) => {
+        if (err) {
+          reject(err);
+        }
+        console.log(`%cUser ${name} registered: ${result}`, css.information);
+        resolve();
+      }
+    );
+  }).catch((err) => {
+    console.error(`%c${err}`, css.error);
+    return res.status(500).json({ message: 'Server error' });
+  });
+  const mailOptions = {
+    from: process.env.EMAIL,
+    to: email,
+    subject: 'Bekräftelse av epostadress',
+    text: `Klicka på länken för att bekräfta din epostadress: http://localhost:4000/verify?token=${token}`,
+  };
+  await new Promise((resolve, reject) => {
+    transporter.sendMail(mailOptions, (err, info) => {
+      if (err) {
+        reject(err);
+      }
+      console.log(`%cEmail sent: ${info.response}`, css.information);
+      resolve();
+    });
+  }).catch((err) => {
+    console.error(`%c${err}`, css.error);
+    return res.status(500).send('Server error');
+  });
+  return res.status(200).json({
+    message:
+      'Användare registrerad, bekräfta din epostadress för att bevara ditt konto',
   });
 });
 

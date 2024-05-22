@@ -63,7 +63,7 @@ $(async function () {
           aside.empty();
           if (response.data.linkedDiscord) {
             aside.append(
-              `<img src="${response.data.avatar}" alt="avatar"><p>${response.data.user}</p><p>Discord: ${response.data.displayname}</p><a href='/account'>Account</a>`
+              `<img src="${response.data.avatar}" alt="avatar"><p>${response.data.user}</p><p>Discord: ${response.data.displayname}</p><a href='/account'>Konto</a>`
             );
           } else if (response.data.loggedIn) {
             aside.append(

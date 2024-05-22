@@ -24,79 +24,55 @@
       integrity='sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4='
       crossorigin='anonymous'
     ></script>
-    <title>Register</title>
-    <link rel='stylesheet' href='/css/register.css' />
+    <script defer src='/js/login.js'></script>
+    <link rel='stylesheet' href='/css/login.css' />
+    <link rel='stylesheet' href='/css/webkit.css' />
+    <title>Registrera konto</title>
     <script defer src='/js/register.js'></script>
   </head>
-  <body>
-    <nav>
-      <h4>Min fina sida</h4>
-      <ul>
-        <li><a href='/'>Hem</a></li>
-        <li><a href='/login'>Logga in</a></li>
-        <li><a href='/register'>Registrera</a></li>
-      </ul>
-    </nav>
-
-    <div class='container mt-4'>
-      <div class='card' style='width: 18rem;'>
-        <div class='card-header'>Registrera dig</div>
-        <div class='card-body'>
-          <form>
-            <div class='mb-3'>
-              <label for='name-reg' class='form-label'>Namn:</label>
-              <input
-                type='text'
-                class='form-control'
-                id='name-reg'
-                name='name'
-              />
-            </div>
-            <div class='mb-3'>
-              <label for='email-reg' class='form-label'>E-post:</label>
-              <input
-                type='text'
-                class='form-control'
-                id='email-reg'
-                name='email'
-              />
-            </div>
-            <div class='mb-3'>
-              <label for='password-reg' class='form-label'>Lösenord:</label>
-              <input
-                type='password'
-                class='form-control'
-                id='password-reg'
-                name='password'
-              />
-            </div>
-            <div class='mb-3'>
-              <label for='password-conf-reg' class='form-label'>Bekräfta
-                lösenord:</label>
-              <input
-                type='password'
-                class='form-control'
-                id='password-conf-reg'
-                name='password_confirm'
-              />
-            </div>
-
-            <button type='submit' class='btn btn-primary'>Registrera dig</button>
-          </form>
-        </div>
-      </div>
-    </div>
-    {{! Visar upp eventuella meddelanden }}
-    {{#if message}}
-      <h4 class='alert alert-danger mt-4'>{{message}}</h4>
-    {{else}}
-      <h4 class='alert alert-danger mt-4' style='display: none;'></h4>
-    {{/if}}
-
-    <script>
-      // Här skapar vi en eventlistener som lyssnar på när formuläret skickas.
-
-    </script>
-
+  <body class='bg-black bg-gradient text-white'>
+    <header class='text-center pb-4 mt-4 mb-2 border-bottom border-primary'>
+      <h1>
+        Regeringen
+      </h1>
+    </header>
+    <main class='d-flex justify-content-center'>
+      {{! Sign up form with username, email, password, and password confirmation fields. It uses bootstrap with a card layout. It does not use div or span elements. }}
+      <form class='card bg-dark text-white w-25 mt-5' id='register-form'>
+        <h2 class='card-header text-center'>Registrera konto</h2>
+        <section
+          class='card-body d-flex flex-column justify-content-center align-items-center'
+        >
+          <label for='username' class='form-label'>Användarnamn</label>
+          <input
+            type='text'
+            id='username'
+            name='username'
+            class='form-control'
+          />
+          <label for='email' class='form-label'>Email</label>
+          <input type='email' id='email' name='email' class='form-control' />
+          <label for='password' class='form-label'>Lösenord</label>
+          <input
+            type='password'
+            id='password'
+            name='password'
+            class='form-control'
+          />
+          <label for='password-confirmation' class='form-label'>Bekräfta
+            lösenord</label>
+          <input
+            type='password'
+            id='password-confirmation'
+            name='password-confirmation'
+            class='form-control'
+          />
+          <button id='submit' type='button' class='btn btn-primary mt-3'>Skapa
+            konto</button>
+        </section>
+        <footer class='response card-footer d-flex justify-content-center'>
+        </footer>
+      </form>
+    </main>
   </body>
 </html>
