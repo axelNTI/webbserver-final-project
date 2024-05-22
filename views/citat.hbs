@@ -24,57 +24,129 @@
       integrity='sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4='
       crossorigin='anonymous'
     ></script>
+    <script defer src='/js/login.js'></script>
+    <link rel='stylesheet' href='/css/login.css' />
+    <link rel='stylesheet' href='/css/webkit.css' />
     <title>Citat</title>
-    <link rel='stylesheet' href='/css/citat.css' />
     <script defer src='/js/citat.js'></script>
   </head>
-  <body>
-    <h1>Quotes</h1>
-    <section class='dropdown'>
-      <button
-        class='btn btn-secondary dropdown-toggle sort-by'
-        type='button'
-        data-bs-toggle='dropdown'
-        aria-expanded='false'
-      >
-        Sort by: Date Written
-      </button>
-      <ul class='dropdown-menu'>
-        <li>
-          <button type='button' class='dropdown-item' id='sort-by-id'>
-            Date Written
-          </button>
-        </li>
-        <li>
-          <button type='button' class='dropdown-item' id='sort-by-score'>
-            Score
-          </button>
-        </li>
-      </ul>
+  <body class='bg-black bg-gradient text-white'>
+    <header class='text-center pb-4 mt-4 mb-2 border-bottom border-primary'>
+      <h1>
+        Regeringen
+      </h1>
+    </header>
+    <aside
+      class='border border-success rounded d-flex flex-column align-items-center float-end'
+    >
+      {{#if user.loggedIn}}
+        {{#if user.linkedDiscord}}
+          <img src='{{user.avatar}}' alt='' />
+          <p>{{user.user}}</p>
+          <p>Discord: {{user.displayname}}</p>
+        {{else}}
+          <img src='/images/default-avatar.png' alt='' />
+          <p>{{user.user}}</p>
+          <a
+            href='https://discord.com/oauth2/authorize?client_id=1222824481571999856&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A4000%2F&scope=identify'
+          >Länka Discord</a>
+        {{/if}}
+        <a class='mb-2' href='/account'>
+          Account
+        </a>
+      {{else}}
+        <img src='/images/default-avatar.png' alt='' />
+        <button
+          type='button'
+          id='login-button'
+          class='btn btn-link link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-info'
+        >
+          <p class='d-inline'>
+            Sign in
+          </p>
+        </button>
+        <a
+          href='/register'
+          class='link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-info mb-3'
+          target='_blank'
+        >Sign up</a>
+      {{/if}}
+    </aside>
+    <section
+      id='login-popup'
+      class='position-fixed bg-black bg-gradient text-white top-50 start-50 translate-middle border border-dark-subtle rounded'
+    >
+      <h3 class='card-header'>Logga in</h3>
+      <form class='card-body'>
+        <label for='username' class='form-label'>Användarnamn eller email:</label>
+        <input type='text' id='username' name='username' class='form-control' />
+        <label for='password' class='form-label'>Lösenord:</label>
+        <input
+          type='password'
+          id='password'
+          name='password'
+          class='form-control'
+        />
+        <button
+          type='button'
+          id='submit-login'
+          class='btn btn-primary mt-2'
+        >Logga in</button>
+        <button
+          type='button'
+          id='close-login'
+          class='btn btn-primary mt-2'
+        >Stäng</button>
+      </form>
+      <section id='response' class='card-footer alert'>
+      </section>
     </section>
-    <ul id='quotes'>
-      {{#each citat}}
-        <li id='{{this.citatID}}' class='quote-li'>
-          <p class='d-inline quote'>
-            {{this.quote}}
-          </p>
-          <br />
-          <p class='d-inline upvote-display'>
-            {{this.upvotes}}
-          </p>
-          <button
-            type='button'
-            class='btn btn-primary quote-vote upvote'
-          ></button>
-          <p class='d-inline downvote-display'>
-            {{this.downvotes}}
-          </p>
-          <button
-            type='button'
-            class='btn btn-danger quote-vote downvote'
-          ></button>
-        </li>
+    <main class='container'>
+      <h3 class='my-4 mx-5'>Citat</h3>
+      <ul id='quotes'>
+        <hr />
+        {{#each citat}}
+          <li
+            id='{{this.citatID}}'
+            class='quote-li d-flex flex-column justify-content-start'
+          >
+            <section>
+              <p class='d-inline quote my-2 mx-3'>
+                {{this.quote}}
+              </p>
+            </section>
+            <section class='d-flex flex-row'>
+              <p class='d-inline upvote-display my-2 ms-3 me-1'>
+                {{this.upvotes}}
+              </p>
+              <button
+                type='button'
+                class='btn btn-primary quote-vote upvote my-2 active'
+                aria-pressed='true'
+              ></button>
+              <p class='d-inline downvote-display my-2 ms-3 me-1'>
+                {{this.downvotes}}
+              </p>
+              <button
+                type='button'
+                class='btn btn-danger quote-vote downvote my-2 active'
+                aria-pressed='true'
+              ></button>
+            </section>
+          </li>
+          <hr />
+        {{/each}}
+      </ul>
+    </main>
+    <footer id='votes' class='d-none'>
+      {{#each votes}}
+        <p class='{{this.quoteID}}'>
+          {{this.quoteID}}
+        </p>
+        <p class='{{this.type}}'>
+          {{this.type}}
+        </p>
       {{/each}}
-    </ul>
+    </footer>
   </body>
 </html>

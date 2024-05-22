@@ -10,15 +10,9 @@ const {
   GatewayIntentBits,
   ActivityType,
 } = require('discord.js'); // Apache-2.0
-// const { SpotifyApi } = require('@spotify/web-api-ts-sdk'); // Apache
-// const { read } = require('fs'); // ISC
 const session = require('express-session'); // MIT
 const { request } = require('undici'); // MIT
-// const Handlebars = require('handlebars'); // MIT
-// const parseurl = require('parseurl'); // MIT
-// const escapeHtml = require('escape-html'); // MIT
 const WebSocket = require('ws'); // MIT
-const hbs = require('hbs'); // MIT
 
 // Styling for console.log and console.error messages in VSCode
 const css = {
@@ -209,20 +203,19 @@ app.get('/citat', async (req, res) => {
     console.error(`%c${err}`, css.error);
     return res.status(500).json({ message: 'Server error' });
   });
-  const quoted = quotes
-    .flatMap((message) => {
-      const individuals = [];
-      const lines = message.quote.split(newLineRegex);
-      lines.forEach((line) => {
-        const matches = line.match(userRegex);
-        if (matches) {
-          individuals.push(...matches.map((match) => match.trim()));
-        } else {
-          console.log(`%c${line}`, css.error);
-        }
-      });
-      return individuals;
+  const quoted = quotes.flatMap((message) => {
+    const individuals = [];
+    const lines = message.quote.split(newLineRegex);
+    lines.forEach((line) => {
+      const matches = line.match(userRegex);
+      if (matches) {
+        individuals.push(...matches.map((match) => match.trim()));
+      } else {
+        console.log(`%c${line}`, css.error);
+      }
     });
+    return individuals;
+  });
   const quotedCount = Object.fromEntries(
     Object.entries(
       quoted.reduce((acc, user) => {
@@ -792,6 +785,7 @@ app.post('/auth/discord', async (req, res) => {
 app.post('/auth/vote', async (req, res) => {
   const { quoteID, type } = req.body;
   if (!quoteID || !type) {
+    console.log('%cMissing data', css.warning);
     return res.status(400).json({ message: 'Ogiltig förfrågan' });
   }
   let uservote;

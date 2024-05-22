@@ -1,6 +1,12 @@
 $(function () {
   const ws = new WebSocket('ws://localhost:8080?=citat');
   let user;
+  const uservotes = $('#votes')
+    .text()
+    .split(' ')
+    .filter((el) => el !== '' && el !== '\n')
+    .map((el) => el.slice(0, -1));
+  console.log(uservotes);
   $.ajax({
     url: '/auth/userdata',
     method: 'GET',
@@ -27,10 +33,12 @@ $(function () {
       alert('You must be logged in to vote');
       return;
     }
-    const quoteID = $(this).parent().attr('id');
+    const quoteID = $(this).parent().parent().attr('id');
     const type = $(this).attr('class').includes('upvote')
       ? 'upvote'
       : 'downvote';
+    console.log(quoteID);
+    console.log(type);
     $.ajax({
       url: '/auth/vote',
       method: 'POST',
@@ -41,20 +49,25 @@ $(function () {
           return;
         }
         if (data.message === 'Röstat') {
+          console.log(data);
           const previous = data.previous;
           if (!previous) {
             $(`#${quoteID}`)
+              .children()
               .children(`.${type}-display`)
               .text((_, oldText) => parseInt(oldText) + 1);
           } else if (previous === type) {
             $(`#${quoteID}`)
+              .children()
               .children(`.${type}-display`)
               .text((_, oldText) => parseInt(oldText) - 1);
           } else if (previous !== type) {
             $(`#${quoteID}`)
+              .children()
               .children(`.${type}-display`)
               .text((_, oldText) => parseInt(oldText) + 1);
             $(`#${quoteID}`)
+              .children()
               .children(`.${type === 'upvote' ? 'downvote' : 'upvote'}-display`)
               .text((_, oldText) => parseInt(oldText) - 1);
           }
