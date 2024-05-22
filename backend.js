@@ -816,7 +816,6 @@ app.post('/auth/discord', async (req, res) => {
 app.post('/auth/vote', async (req, res) => {
   const { quoteID, type } = req.body;
   if (!quoteID || !type) {
-    console.log('%cMissing data', css.warning);
     return res.status(400).json({ message: 'Ogiltig förfrågan' });
   }
   let uservote;
