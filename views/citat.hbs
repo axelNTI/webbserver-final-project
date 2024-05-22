@@ -103,6 +103,36 @@
     </section>
     <main class='container'>
       <h3 class='my-4 mx-5'>Citat</h3>
+      <section class='d-flex flex-row justify-content-start'>
+        <section class='dropdown mx-5'>
+          <button
+            class='btn btn-secondary dropdown-toggle'
+            type='button'
+            id='sort-by'
+            data-bs-toggle='dropdown'
+            aria-expanded='false'
+          >
+            Sortera: Datum
+          </button>
+          <ul class='dropdown-menu' aria-labelledby='sort-by'>
+            <li>
+              <button
+                class='dropdown-item'
+                type='button'
+                id='sort-by-id'
+              >Datum</button>
+
+            </li>
+            <li>
+              <button
+                class='dropdown-item'
+                type='button'
+                id='sort-by-score'
+              >Bäst</button>
+            </li>
+          </ul>
+        </section>
+      </section>
       <ul id='quotes'>
         <hr />
         {{#each citat}}
@@ -122,6 +152,7 @@
               <button
                 type='button'
                 class='btn btn-primary quote-vote upvote my-2 active'
+                data-bs-toggle='button'
                 aria-pressed='true'
               ></button>
               <p class='d-inline downvote-display my-2 ms-3 me-1'>
@@ -130,6 +161,7 @@
               <button
                 type='button'
                 class='btn btn-danger quote-vote downvote my-2 active'
+                data-bs-toggle='button'
                 aria-pressed='true'
               ></button>
             </section>

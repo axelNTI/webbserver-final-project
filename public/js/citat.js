@@ -6,7 +6,21 @@ $(function () {
     .split(' ')
     .filter((el) => el !== '' && el !== '\n')
     .map((el) => el.slice(0, -1));
-  console.log(uservotes);
+  // The array contains alternating quote IDs and vote types, convert them to an array of objects
+  const restructured = uservotes
+    .map((el, i) => {
+      if (i % 2 === 0) {
+        return { id: el, type: uservotes[i + 1] };
+      }
+    })
+    .filter((el) => el !== undefined);
+  restructured.forEach((el) => {
+    $(`#${el.id}`)
+      .children()
+      .children(`button.${el.type}`)
+      .removeClass('active')
+      .attr('aria-pressed', 'false');
+  });
   $.ajax({
     url: '/auth/userdata',
     method: 'GET',
@@ -37,8 +51,6 @@ $(function () {
     const type = $(this).attr('class').includes('upvote')
       ? 'upvote'
       : 'downvote';
-    console.log(quoteID);
-    console.log(type);
     $.ajax({
       url: '/auth/vote',
       method: 'POST',
@@ -49,18 +61,27 @@ $(function () {
           return;
         }
         if (data.message === 'Röstat') {
-          console.log(data);
           const previous = data.previous;
           if (!previous) {
             $(`#${quoteID}`)
               .children()
               .children(`.${type}-display`)
               .text((_, oldText) => parseInt(oldText) + 1);
+            $(`#${quoteID}`)
+              .children()
+              .children(`button.${type}`)
+              .removeClass('active')
+              .attr('aria-pressed', 'false');
           } else if (previous === type) {
             $(`#${quoteID}`)
               .children()
               .children(`.${type}-display`)
               .text((_, oldText) => parseInt(oldText) - 1);
+            $(`#${quoteID}`)
+              .children()
+              .children(`button.${type}`)
+              .addClass('active')
+              .attr('aria-pressed', 'true');
           } else if (previous !== type) {
             $(`#${quoteID}`)
               .children()
@@ -68,8 +89,18 @@ $(function () {
               .text((_, oldText) => parseInt(oldText) + 1);
             $(`#${quoteID}`)
               .children()
+              .children(`button.${type}`)
+              .removeClass('active')
+              .attr('aria-pressed', 'false');
+            $(`#${quoteID}`)
+              .children()
               .children(`.${type === 'upvote' ? 'downvote' : 'upvote'}-display`)
               .text((_, oldText) => parseInt(oldText) - 1);
+            $(`#${quoteID}`)
+              .children()
+              .children(`button.${type === 'upvote' ? 'downvote' : 'upvote'}`)
+              .addClass('active')
+              .attr('aria-pressed', 'true');
           }
         }
       },
@@ -85,24 +116,29 @@ $(function () {
     });
     $('#quotes').empty();
     sortedQuotes.each(function () {
+      $('#quotes').append('<hr/>');
       $('#quotes').append($(this));
     });
-    $('.sort-by').text('Sort by: Date Written');
+    $('#quotes').append('<hr/>');
+    $('#sort-by').text('Sortera: Datum');
   });
+
   $('#sort-by-score').on('click', function () {
     const sortedQuotes = $('.quote-li').sort(function (a, b) {
       const aScore =
-        parseInt($(a).children('.upvote-display').text()) -
-        parseInt($(a).children('.downvote-display').text());
+        parseInt($(a).children().children('.upvote-display').text()) -
+        parseInt($(a).children().children('.downvote-display').text());
       const bScore =
-        parseInt($(b).children('.upvote-display').text()) -
-        parseInt($(b).children('.downvote-display').text());
+        parseInt($(b).children().children('.upvote-display').text()) -
+        parseInt($(b).children().children('.downvote-display').text());
       return bScore - aScore;
     });
     $('#quotes').empty();
     sortedQuotes.each(function () {
+      $('#quotes').append('<hr/>');
       $('#quotes').append($(this));
     });
-    $('.sort-by').text('Sort by: Score');
+    $('#quotes').append('<hr/>');
+    $('#sort-by').text('Sortera: Bäst');
   });
 });
