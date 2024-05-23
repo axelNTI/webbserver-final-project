@@ -28,9 +28,9 @@
     <link rel='stylesheet' href='/css/login.css' />
     <link rel='stylesheet' href='/css/webkit.css' />
     <link rel='stylesheet' href='/css/_variables.css' />
-
     <title>Skärmbilder</title>
     <script defer src='/js/screenshots.js'></script>
+    <link rel='stylesheet' href='/css/screenshots.css' />
   </head>
   <body class='bg-black bg-gradient text-white'>
     <header
@@ -48,7 +48,7 @@
       <p class='d-inline'></p>
     </header>
     <aside
-      class='border border-success rounded d-flex flex-column align-items-center float-end position-sticky top-10 z-1'
+      class='border border-success rounded d-flex flex-column align-items-center float-end position-sticky top-10 z-1 bg-black bg-gradient text-white'
     >
       {{#if user.loggedIn}}
         {{#if user.linkedDiscord}}
@@ -116,12 +116,8 @@
       <ul>
         <hr />
         {{#each screenshots}}
-          <li class='d-flex flex-row justify-content-between'>
-            <img
-              src='{{this.url}}'
-              alt='{{this.title}}'
-              class='w-75 my-2 mx-3'
-            />
+          <li>
+            <img src='{{this.url}}' class='my-2 mx-3' />
           </li>
           <hr />
         {{/each}}

@@ -6,6 +6,7 @@ $(async function () {
   ws.onmessage = function (event) {
     console.log(JSON.parse(event.data));
 
+    // Lägger till citatet i listan
     $('#quotes').append(
       `<li id='${
         JSON.parse(event.data).citatID

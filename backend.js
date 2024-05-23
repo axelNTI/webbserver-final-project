@@ -1547,6 +1547,13 @@ client.on(Events.MessageCreate, async (message) => {
       Promise.all(promises).then(() => {
         console.log('%cScreenshots inlagda', css.information);
       });
+      message.attachments.forEach((attachment) => {
+        connections.forEach((pageId, ws) => {
+        if (pageId === 'screenshots' && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(attachment.url));
+        }
+        });
+      });
       return;
     default:
       return;

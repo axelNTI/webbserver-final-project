@@ -1,10 +1,11 @@
 body {
-  width: 100svw;
-  & > ul {
-    & > li {
-      & > img {
-        max-width: 100dvw;
-        height: auto;
+  & > main {
+    & > ul {
+      & > li {
+        & > img {
+          max-width: 75vw;
+          height: auto;
+        }
       }
     }
   }
