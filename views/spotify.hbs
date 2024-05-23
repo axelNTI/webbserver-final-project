@@ -101,33 +101,36 @@
       <section id='response' class='card-footer alert'>
       </section>
     </section>
-    <main class='container d-flex flex-row'>
-      <section class='w-50'>
-        <ul id='song-list' class='list-group list-group-flush'>
-          <hr />
-          {{#each spotify}}
-            <li class='d-flex flex-row justify-content-between'>
-              <p class='d-inline my-2 mx-3 songName'>{{this.song}}</p>
-              <p class='d-inline my-2 mx-3 artistList'>{{#each
-                  this.artist
-                }}{{this.artistName}}†{{/each}}</p>
-              <p class='d-inline my-2 mx-3 songTime'>{{this.time}}</p>
-            </li>
+    <main class='container d-flex flex-column vw-100'>
+      <h2 class='text-center'>Spotify</h2>
+      <section class='container d-flex flex-row w-100'>
+        <section class='w-100'>
+          <ul id='song-list' class='list-group list-group-flush'>
             <hr />
-          {{/each}}
-        </ul>
-      </section>
-      <section class='w-50'>
-        <ul class='w-50' id='artist-list' class='list-group list-group-flush'>
-          <hr />
-          {{#each artists}}
-            <li class='d-flex flex-row justify-content-between'>
-              <p class='d-inline my-2 mx-3 artistName'>{{this.artistName}}</p>
-              <p class='d-inline my-2 mx-3 artistTime'>{{this.time}}</p>
-            </li>
+            {{#each spotify}}
+              <li class='d-flex flex-row justify-content-between'>
+                <p class='d-inline my-2 mx-3 songName'>{{this.song}}</p>
+                <p class='d-inline my-2 mx-3 artistList'>{{#each
+                    this.artist
+                  }}{{this.artistName}}†{{/each}}</p>
+                <p class='d-inline my-2 mx-3 songTime'>{{this.time}}</p>
+              </li>
+              <hr />
+            {{/each}}
+          </ul>
+        </section>
+        <section class='w-100'>
+          <ul class='w-50' id='artist-list' class='list-group list-group-flush'>
             <hr />
-          {{/each}}
-        </ul>
+            {{#each artists}}
+              <li class='d-flex flex-row justify-content-between'>
+                <p class='d-inline my-2 mx-3 artistName'>{{this.artistName}}</p>
+                <p class='d-inline my-2 mx-3 artistTime'>{{this.time}}</p>
+              </li>
+              <hr />
+            {{/each}}
+          </ul>
+        </section>
       </section>
     </main>
   </body>

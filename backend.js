@@ -488,7 +488,52 @@ app.get('/verify', async (req, res) => {
 app.get('/delete', async (req, res) => {
   const { token } = req.query;
   if (!token) {
-    return res.status(500).json({ message: 'Token saknas' });
+    // Skickar nytt mail till användaren
+    const token = crypto.randomBytes(32).toString('hex');
+    await new Promise((resolve, reject) => {
+      db.query(
+        'UPDATE users SET token = ? WHERE email = ? ',
+        [token, req.session.email],
+        (err, result) => {
+          if (err) {
+            reject(err);
+          }
+          console.log(`%cUser token updated: ${result}`, css.success);
+          resolve();
+        }
+      );
+    }).catch((err) => {
+      console.error(`%c${err}`, css.error);
+      return res.status(500).json({ message: 'Server error' });
+    });
+
+    // Skapar ett mail till användaren för att ta bort kontot
+    const mailOptions = {
+      from: process.env.EMAIL,
+      to: req.session.email,
+      subject: 'Bekräftelse av radering av konto',
+      text: `Klicka på länken för att radera ditt konto: http://localhost:4000/delete?token=${token}`,
+    };
+
+    // Skickar mailet
+    await new Promise((resolve, reject) => {
+      transporter.sendMail(mailOptions, (err, info) => {
+        if (err) {
+          reject(err);
+        }
+        console.log(`%cEmail sent: ${info.response}`, css.information);
+        resolve();
+      });
+    }).catch((err) => {
+      console.error(`%c${err}`, css.error);
+      return res.status(500).send('Server error');
+    });
+
+    // Omdirigerar användaren till kontosidan med ett meddelande
+    res.redirect(
+      'http://localhost:4000/account?message=Kontot kommer att raderas om du bekräftar det via epost'
+    );
+    return;
   }
 
   // Raderar användaren från databasen
@@ -504,8 +549,31 @@ app.get('/delete', async (req, res) => {
     return res.status(500).json({ message: 'Server error' });
   });
 
-  // Skickar att användaren har raderats
-  return res.status(200).json({ message: 'Konto raderat' });
+  // Tar bort användarens session
+  req.session.destroy((err) => {
+    if (err) {
+      console.error(`%c${err}`, css.error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+  });
+
+  console.log('%cUser deleted', css.information)
+
+  // Skickar användaren till startsidan
+  res.redirect('http://localhost:4000');
+});
+
+app.get('/logout', (req, res) => {
+  // Loggar ut användaren
+  req.session.destroy((err) => {
+    if (err) {
+      console.error(`%c${err}`, css.error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+  });
+
+  // Skickar att användaren är utloggad
+  res.redirect('http://localhost:4000');
 });
 
 app.get('/404', (req, res) => {
@@ -820,19 +888,6 @@ app.post('/auth/login', async (req, res) => {
 
   // Skickar att användaren är inloggad
   return res.status(200).json({ message: 'Inloggad', data: data });
-});
-
-app.post('/auth/logout', (req, res) => {
-  // Loggar ut användaren
-  req.session.destroy((err) => {
-    if (err) {
-      console.error(`%c${err}`, css.error);
-      return res.status(500).json({ message: 'Server error' });
-    }
-  });
-
-  // Skickar att användaren är utloggad
-  return res.status(200).json({ message: 'Utloggad' });
 });
 
 app.post('/auth/forgot', (req, res) => {
@@ -1177,7 +1232,6 @@ app.post('/auth/vote', async (req, res) => {
         });
         return res.status(200).json({ message: 'Röstat', previous: 'upvote' });
       } else if (uservote.length > 0 && uservote[0].type === 'downvote') {
-
         // Röstar på citatet
         await new Promise((resolve, reject) => {
           db.query(
@@ -1215,7 +1269,6 @@ app.post('/auth/vote', async (req, res) => {
           .status(200)
           .json({ message: 'Röstat', previous: 'downvote' });
       } else if (uservote.length === 0) {
-
         // Röstar på citatet
         await new Promise((resolve, reject) => {
           db.query(
@@ -1255,7 +1308,6 @@ app.post('/auth/vote', async (req, res) => {
         return res.status(400).json({ message: 'Ogiltig förfrågan' });
       }
     default:
-
       // Om förfrågan är okänd
       console.log('%cUnknown message', css.warning);
       return res.status(400).json({ message: 'Ogiltig förfrågan' });
@@ -1264,7 +1316,6 @@ app.post('/auth/vote', async (req, res) => {
 
 // Loggar in som discordboten
 client.login(process.env.DISCORD_TOKEN);
-
 
 // När botten är redo
 client.on(Events.ClientReady, async (readyClient) => {
@@ -1296,7 +1347,7 @@ client.on(Events.ClientReady, async (readyClient) => {
       }
       return matched !== null;
     });
-  
+
   // Hämtar alla citat från databasen
   const dbQuotes = await new Promise((resolve, reject) => {
     db.query('SELECT * FROM citat', (err, result) => {
@@ -1318,7 +1369,6 @@ client.on(Events.ClientReady, async (readyClient) => {
   let newQuotesCount = 0;
   const quotePromises = [];
   newQuotes.forEach((message) => {
-
     // Lägger till citatet i databasen
     const promise = new Promise((resolve, reject) => {
       db.query(
@@ -1384,7 +1434,6 @@ client.on(Events.ClientReady, async (readyClient) => {
     })
     .flat()
     .forEach((screenshot) => {
-
       // Lägger till skärmbilden i databasen
       const promise = new Promise((resolve, reject) => {
         db.query('INSERT INTO screenshots SET ?', screenshot, (err, result) => {
@@ -1398,7 +1447,7 @@ client.on(Events.ClientReady, async (readyClient) => {
       });
       screenshotPromises.push(promise);
     });
-  
+
   // Väntar på att alla skärmbilder ska läggas till
   Promise.all(screenshotPromises).then(() => {
     console.log('%cScreenshots återställda', css.success);
@@ -1407,7 +1456,6 @@ client.on(Events.ClientReady, async (readyClient) => {
 
 // När botten tar emot ett meddelande
 client.on(Events.MessageCreate, async (message) => {
-
   // Kollar vilken kanal meddelandet skickades i
   switch (message.channelId) {
     case process.env.DISCORD_CHANNEL_ID_CITAT_DEPARTEMENTET:
@@ -1489,7 +1537,6 @@ client.on(Events.MessageCreate, async (message) => {
 // När en användare byter aktivitet
 client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
   if (oldActivities && oldActivities.activities) {
-
     // Omformaterar aktiviteterna och loopar igenom dem
     oldActivities.activities
       .filter(
@@ -1522,7 +1569,6 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
           return null;
         });
         if (activity.name === 'Spotify') {
-
           // Lägger till Spotify-aktiviteten i databasen
           await new Promise((resolve, reject) => {
             db.query(

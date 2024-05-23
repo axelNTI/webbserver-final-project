@@ -26,7 +26,7 @@
     ></script>
     <link rel='stylesheet' href='/css/webkit.css' />
     <title>Konto</title>
-    <script defer src='/js/index.js'></script>
+    <script defer src='/js/account.js'></script>
   </head>
   <body class='bg-black bg-gradient text-white'>
     <header class='text-center pb-4 mt-4 mb-2 border-bottom border-primary'>
@@ -38,13 +38,22 @@
       class='d-flex flex-column justify-content-center align-items-center text-white'
     >
       <section
-        class='text-center w-25 border border-success rounded p-3 bg-dark bg-gradient d-flex flex-column justify-content-center'
+        class='text-center w-25 border border-success rounded p-3 bg-dark bg-gradient text-white card bg-dark bg-gradient border border-success rounded p-3 w-25'
       >
-        <h2>Konto</h2>
-        
-        <img src='{{user.avatar}}' alt='' class='w-50' />
-        <a class='alert alert-primary' href='/logout'>Logga ut</a>
 
+        <h2 class='card-header'>Konto</h2>
+        <section class="card-body d-flex flex-column justify-content-center align-items-center">
+          {{#if user.linkedDiscord}}
+            <img src='{{user.avatar}}' alt='' class='w-50' />
+          {{else}}
+            <img src='/images/default-avatar.png' alt='' class='w-50' />
+          {{/if}}
+          <a class='alert alert-primary w-75' href='/logout'>Logga ut</a>
+          <a class='alert alert-danger w-75' href='/delete'>Ta bort konto</a>
+        </section>
+        <footer class="card-footer alert alert-danger d-none" id="response">
+
+        </footer>
       </section>
 
     </main>

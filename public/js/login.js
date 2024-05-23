@@ -97,7 +97,7 @@ $(async function () {
             );
           } else if (response.data.loggedIn) {
             aside.append(
-              `<img src="/images/default-avatar.png" alt="avatar"><p>${response.data.user}</p><a href="https://discord.com/oauth2/authorize?client_id=1222824481571999856&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A4000%2F&scope=identify">Länka Discord</a><a href='/account'>Account</a>`
+              `<img src="/images/default-avatar.png" alt="avatar"><p>${response.data.user}</p><a href="https://discord.com/oauth2/authorize?client_id=1222824481571999856&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A4000%2F&scope=identify">Länka Discord</a><a href='/account'>Konto</a>`
             );
           }
         }
