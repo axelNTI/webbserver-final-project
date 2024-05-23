@@ -557,7 +557,7 @@ app.get('/delete', async (req, res) => {
     }
   });
 
-  console.log('%cUser deleted', css.information)
+  console.log('%cUser deleted', css.information);
 
   // Skickar användaren till startsidan
   res.redirect('http://localhost:4000');
@@ -591,7 +591,6 @@ app.get('*', (req, res) => {
 });
 
 app.post('/auth/register', async (req, res) => {
-  console.log(req.body);
   const { name, email, password, password_confirm } = req.body;
 
   // Hämtar alla användare från databasen
@@ -1195,7 +1194,6 @@ app.post('/auth/vote', async (req, res) => {
         console.error(`%c${err}`, css.error);
         return res.status(500).json({ message: 'Server error' });
       });
-      console.log(uservote);
       if (uservote.length > 0 && uservote[0].type === 'upvote') {
         // Röstar på citatet
         await new Promise((resolve, reject) => {
@@ -1488,12 +1486,33 @@ client.on(Events.MessageCreate, async (message) => {
         console.error(`%c${err}`, css.error);
         return;
       });
-      console.log(`%cCitat inlagt: ${message.content}`, css.information);
 
+      // Tar fram det nya citatets ID
+      const citatID = await new Promise((resolve, reject) => {
+        db.query(
+          'SELECT citatID FROM citat WHERE quote = ?',
+          [message.content],
+          (err, result) => {
+            if (err) {
+              reject(err);
+            }
+            resolve(result);
+          }
+        );
+      }).catch((err) => {
+        console.error(`%c${err}`, css.error);
+        return;
+      });
+      console.log(`%cCitat inlagt: ${message.content}`, css.information);
+      
+        const data = {
+          quote: message.content,
+          citatID: citatID,
+        }
       // Skickar citatet till alla anslutna klienter på citatsidan
       connections.forEach((pageId, ws) => {
         if (pageId === 'citat' && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify(message));
+          ws.send(JSON.stringify(data));
         }
       });
       return;

@@ -25,15 +25,27 @@
       crossorigin='anonymous'
     ></script>
     <link rel='stylesheet' href='/css/webkit.css' />
+    <link rel='stylesheet' href='/css/_variables.css' />
+
     <title>Konto</title>
     <script defer src='/js/account.js'></script>
   </head>
   <body class='bg-black bg-gradient text-white'>
-    <header class='text-center pb-4 mt-4 mb-2 border-bottom border-primary'>
-      <h1>
+    <header
+      class='text-center border-bottom border-primary bg-black position-sticky top-0 w-100 z-1 bg-gradient d-flex justify-content-between align-items-center'
+    >
+      <a
+        href='../'
+        class='link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-primary border border-primary p-3 bg-black bg-gradient border-3 ms-3 text-info-'
+      >
+        Tillbaka
+      </a>
+      <h1 class='py-4'>
         Regeringen
       </h1>
+      <p class='d-inline'></p>
     </header>
+
     <main
       class='d-flex flex-column justify-content-center align-items-center text-white'
     >
@@ -42,7 +54,9 @@
       >
 
         <h2 class='card-header'>Konto</h2>
-        <section class="card-body d-flex flex-column justify-content-center align-items-center">
+        <section
+          class='card-body d-flex flex-column justify-content-center align-items-center'
+        >
           {{#if user.linkedDiscord}}
             <img src='{{user.avatar}}' alt='' class='w-50' />
           {{else}}
@@ -51,7 +65,7 @@
           <a class='alert alert-primary w-75' href='/logout'>Logga ut</a>
           <a class='alert alert-danger w-75' href='/delete'>Ta bort konto</a>
         </section>
-        <footer class="card-footer alert alert-danger d-none" id="response">
+        <footer class='card-footer alert alert-danger d-none' id='response'>
 
         </footer>
       </section>

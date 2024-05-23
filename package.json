@@ -4,7 +4,7 @@
   "description": "",
   "main": "backend.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "compile": "sass public/scss/_variables.scss public/css/_variables.css"
   },
   "repository": {
     "type": "git",
@@ -27,7 +27,8 @@
     "jquery": "^3.7.1",
     "mysql2": "^3.9.7",
     "nodemailer": "^6.9.13",
-    "undici": "^6.18.0",
+    "sass": "^1.77.2",
+    "undici": "^6.18.1",
     "ws": "^8.17.0"
   }
 }

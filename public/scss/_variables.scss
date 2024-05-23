@@ -1,0 +1,42 @@
+$position-values: (
+  0: 0,
+  5: 5%,
+  10: 10%,
+  50: 50%,
+  100: 100%,
+);
+
+@mixin generate-sticky-positions($map) {
+  @each $key, $value in $map {
+    .position-sticky-top-#{$key} {
+      position: -webkit-sticky;
+      position: sticky;
+      top: $value;
+    }
+  }
+}
+
+@import '../../node_modules/bootstrap/scss/bootstrap';
+
+// Define position values map
+$position-values: (
+  0: 0,
+  5: 5%,
+  10: 10%,
+  50: 50%,
+  100: 100%,
+);
+
+// Mixin to generate sticky position classes
+@mixin generate-sticky-positions($map) {
+  @each $key, $value in $map {
+    .position-sticky-top-#{$key} {
+      position: -webkit-sticky;
+      position: sticky;
+      top: $value;
+    }
+  }
+}
+
+// Generate the sticky position classes
+@include generate-sticky-positions($position-values);

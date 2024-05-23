@@ -4,10 +4,25 @@ $(async function () {
 
   // När servern skickar ett meddelande läggs det till i citatlistan
   ws.onmessage = function (event) {
-    $('ul').append(
-      '<li>' +
-        JSON.parse(event.data).content.replaceAll(/\n/g, '<br>') +
-        '</li><br>'
+    console.log(JSON.parse(event.data));
+
+    $('#quotes').append(
+      `<li id='${
+        JSON.parse(event.data).citatID
+      }' class='quote-li d-flex flex-column justify-content-start'>` +
+        `<section>` +
+        `<p class='d-inline quote my-2 mx-3'>${
+          JSON.parse(event.data).quote
+        }</p>` +
+        `</section>` +
+        `<section class='d-flex flex-row'>` +
+        `<p class='d-inline upvote-display my-2 ms-3 me-1'>0</p>` +
+        `<button type='button' class='btn btn-primary quote-vote upvote my-2 active' data-bs-toggle='button' aria-pressed='true'></button>` +
+        `<p class='d-inline downvote-display my-2 ms-3 me-1'>0</p>` +
+        `<button type='button' class='btn btn-danger quote-vote downvote my-2 active' data-bs-toggle='button' aria-pressed='true'></button>` +
+        `</section>` +
+        `</li>` +
+        `<hr />`
     );
   };
 
@@ -63,85 +78,97 @@ $(async function () {
     $(`#${user.username}`).text($(`#${user.username}`).text() + ' (Du)');
   }
 
-  // När användaren klickar på en röstknapp
-  $('.quote-vote').on('click', function () {
-    if (!user.loggedIn) {
-      alert('You must be logged in to vote');
-      return;
-    }
-
-    // Hämtar citatets ID och typen av röst
-    const quoteID = $(this).parent().parent().attr('id');
-    const type = $(this).attr('class').includes('upvote')
-      ? 'upvote'
-      : 'downvote';
-    
-    // Skickar en POST-förfrågan till servern
-    $.ajax({
-      url: '/auth/vote',
-      method: 'POST',
-      data: { quoteID: quoteID, type: type },
-      success: function (data) {
-        if (data.error) {
-          alert(data.error);
+  // Funktion för att sätta event listeners på röstknapparna
+  function attachButtonListeners() {
+    $('.quote-vote')
+      .off('click')
+      .on('click', function () {
+        if (!user.loggedIn) {
+          alert('You must be logged in to vote');
           return;
         }
 
-        // Om röstningen lyckades, uppdatera röstknapparna och räkna om rösterna
-        if (data.message === 'Röstat') {
-          const previous = data.previous;
-          if (!previous) {
-            $(`#${quoteID}`)
-              .children()
-              .children(`.${type}-display`)
-              .text((_, oldText) => parseInt(oldText) + 1);
-            $(`#${quoteID}`)
-              .children()
-              .children(`button.${type}`)
-              .removeClass('active')
-              .attr('aria-pressed', 'false');
-          } else if (previous === type) {
-            $(`#${quoteID}`)
-              .children()
-              .children(`.${type}-display`)
-              .text((_, oldText) => parseInt(oldText) - 1);
-            $(`#${quoteID}`)
-              .children()
-              .children(`button.${type}`)
-              .addClass('active')
-              .attr('aria-pressed', 'true');
-          } else if (previous !== type) {
-            $(`#${quoteID}`)
-              .children()
-              .children(`.${type}-display`)
-              .text((_, oldText) => parseInt(oldText) + 1);
-            $(`#${quoteID}`)
-              .children()
-              .children(`button.${type}`)
-              .removeClass('active')
-              .attr('aria-pressed', 'false');
-            $(`#${quoteID}`)
-              .children()
-              .children(`.${type === 'upvote' ? 'downvote' : 'upvote'}-display`)
-              .text((_, oldText) => parseInt(oldText) - 1);
-            $(`#${quoteID}`)
-              .children()
-              .children(`button.${type === 'upvote' ? 'downvote' : 'upvote'}`)
-              .addClass('active')
-              .attr('aria-pressed', 'true');
-          }
-        }
-      },
-      error: function (err) {
-        console.error(err);
-        alert('Error voting, please try again later');
-      },
-    });
-  });
+        // Hämtar citatets ID och typen av röst
+        const quoteID = $(this).parent().parent().attr('id');
+        const type = $(this).attr('class').includes('upvote')
+          ? 'upvote'
+          : 'downvote';
+
+        console.log(quoteID, type);
+
+        // Skickar en POST-förfrågan till servern
+        $.ajax({
+          url: '/auth/vote',
+          method: 'POST',
+          data: { quoteID: quoteID, type: type },
+          success: function (data) {
+            if (data.error) {
+              alert(data.error);
+              return;
+            }
+
+            // Om röstningen lyckades, uppdatera röstknapparna och räkna om rösterna
+            if (data.message === 'Röstat') {
+              const previous = data.previous;
+              if (!previous) {
+                $(`#${quoteID}`)
+                  .children()
+                  .children(`.${type}-display`)
+                  .text((_, oldText) => parseInt(oldText) + 1);
+                $(`#${quoteID}`)
+                  .children()
+                  .children(`button.${type}`)
+                  .removeClass('active')
+                  .attr('aria-pressed', 'false');
+              } else if (previous === type) {
+                $(`#${quoteID}`)
+                  .children()
+                  .children(`.${type}-display`)
+                  .text((_, oldText) => parseInt(oldText) - 1);
+                $(`#${quoteID}`)
+                  .children()
+                  .children(`button.${type}`)
+                  .addClass('active')
+                  .attr('aria-pressed', 'true');
+              } else if (previous !== type) {
+                $(`#${quoteID}`)
+                  .children()
+                  .children(`.${type}-display`)
+                  .text((_, oldText) => parseInt(oldText) + 1);
+                $(`#${quoteID}`)
+                  .children()
+                  .children(`button.${type}`)
+                  .removeClass('active')
+                  .attr('aria-pressed', 'false');
+                $(`#${quoteID}`)
+                  .children()
+                  .children(
+                    `.${type === 'upvote' ? 'downvote' : 'upvote'}-display`
+                  )
+                  .text((_, oldText) => parseInt(oldText) - 1);
+                $(`#${quoteID}`)
+                  .children()
+                  .children(
+                    `button.${type === 'upvote' ? 'downvote' : 'upvote'}`
+                  )
+                  .addClass('active')
+                  .attr('aria-pressed', 'true');
+              }
+            }
+          },
+          error: function (err) {
+            console.error(err);
+            alert('Error voting, please try again later');
+          },
+        });
+      });
+  }
+
+  // Sätter event listeners på röstknapparna
+  attachButtonListeners();
 
   // När användaren sorterar citaten efter datum
   $('#sort-by-id').on('click', function () {
-
     // Sorterar citaten efter ID
     const sortedQuotes = $('.quote-li').sort(function (a, b) {
       return parseInt($(a).attr('id')) - parseInt($(b).attr('id'));
@@ -155,13 +182,15 @@ $(async function () {
     });
     $('#quotes').append('<hr/>');
 
+    // Sätt event listeners på knapparna
+    attachButtonListeners();
+
     // Ändrar texten på sortera-knappen
     $('#sort-by').text('Sortera: Datum');
   });
 
   // När användaren sorterar citaten efter deras poäng
   $('#sort-by-score').on('click', function () {
-
     // Sorterar citaten efter deras poäng
     const sortedQuotes = $('.quote-li').sort(function (a, b) {
       const aScore =
@@ -180,6 +209,9 @@ $(async function () {
       $('#quotes').append($(this));
     });
     $('#quotes').append('<hr/>');
+
+    // Sätt event listeners på knapparna
+    attachButtonListeners();
 
     // Ändrar texten på sortera-knappen
     $('#sort-by').text('Sortera: Bäst');

@@ -27,17 +27,21 @@
     <script defer src='/js/login.js'></script>
     <link rel='stylesheet' href='/css/login.css' />
     <link rel='stylesheet' href='/css/webkit.css' />
+    <link rel='stylesheet' href='/css/_variables.css' />
+
     <title>Regeringen</title>
     <script defer src='/js/index.js'></script>
   </head>
   <body class='bg-black bg-gradient text-white'>
-    <header class='text-center pb-4 mt-4 mb-2 border-bottom border-primary'>
-      <h1>
+    <header
+      class='text-center border-bottom border-primary bg-black position-sticky top-0 w-100 z-1 bg-gradient align-items-center'
+    >
+      <h1 class='py-4'>
         Regeringen
       </h1>
     </header>
     <aside
-      class='border border-success rounded d-flex flex-column align-items-center float-end'
+      class='border border-success rounded d-flex flex-column align-items-center float-end position-sticky top-10 z-1'
     >
       {{#if user.loggedIn}}
         {{#if user.linkedDiscord}}
@@ -68,7 +72,6 @@
         <a
           href='/register'
           class='link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-info mb-3'
-          target='_blank'
         >Skapa konto</a>
       {{/if}}
     </aside>
@@ -119,7 +122,6 @@
           <a
             href='/activity'
             class='col-12 link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-light p-5'
-            target='_blank'
           >
             <h3 class='text-center pt-5'>Aktivitet</h3>
             <p class='text-center pb-5'>
@@ -134,7 +136,6 @@
           <a
             href='/citat'
             class='col-12 link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-light p-5'
-            target='_blank'
           >
             <h3 class='text-center pt-5'>Citat</h3>
             <p class='text-center pb-5'>
@@ -149,7 +150,6 @@
           <a
             href='/spotify'
             class='col-12 link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-light p-5'
-            target='_blank'
           >
             <h3 class='text-center pt-5'>Spotify</h3>
             <p class='text-center pb-5'>
@@ -164,7 +164,6 @@
           <a
             href='/screenshots'
             class='col-12 link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-light p-5'
-            target='_blank'
           >
             <h3 class='text-center pt-5'>Skärmbilder</h3>
             <p class='text-center pb-5'>
