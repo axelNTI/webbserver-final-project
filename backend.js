@@ -48,6 +48,7 @@ const app = express();
 app.set('view engine', 'hbs');
 dotenv.config({ path: '../webbserver-final-project-private/.env' });
 
+// Aktiverar sessions för att lagring av användaruppgifter
 app.use(
   session({
     secret: process.env.EXPRESS_SESSION_SECRET,
@@ -56,25 +57,35 @@ app.use(
   })
 );
 
+// Skapar en WebSocket-server
 const wss = new WebSocket.Server({ port: 8080 });
 
+// Skapar en Map för att lagra anslutningar
 const connections = new Map();
 
+// Lyssnar efter anslutningar
 wss.on('connection', function connection(ws, req) {
   const pageId = req.url.split('=')[1];
   connections.set(ws, pageId);
+
+  // Tar emot meddelanden (borde inte ske)
   ws.on('message', function incoming(message) {
     message = JSON.parse(message);
     console.log(`%cReceived message: ${message.type}`, css.information);
   });
+
+  // Tar bort användaren från Map när anslutningen stängs
   ws.on('close', function () {
     connections.delete(ws);
   });
+
+  // Loggar fel
   ws.on('error', function (error) {
     console.error(`%c${error}`, css.error);
   });
 });
 
+// Skapar en Discord-klient
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -85,6 +96,7 @@ const client = new Client({
   ],
 });
 
+// En asynkron funktion som hämtar alla meddelanden från en kanal
 async function fetchAllMessages(channel_id) {
   const channel = client.channels.cache.get(channel_id);
   let messages = [];
@@ -104,17 +116,22 @@ async function fetchAllMessages(channel_id) {
   return messages;
 }
 
+// En regex för att kolla om en sträng är en epostadress
 const emailRegex =
   /^(([^<>()[\]\.,;:\s@\"]+(\.[^<>()[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i;
 
+// En regex för att kolla om ett lösenord uppfyller kraven
 const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])[0-9a-zA-Z]{8,35}$/;
 
 // https://regex101.com/library/qE9gR7
+// En regex för att kolla om en sträng innehåller SQL-injektion
 const sqlInjectionRegex =
   /(\s*([\0\b\'\"\n\r\t\%\_\\]*\s*(((select\s*.+\s*from\s*.+)|(insert\s*.+\s*into\s*.+)|(update\s*.+\s*set\s*.+)|(delete\s*.+\s*from\s*.+)|(drop\s*.+)|(truncate\s*.+)|(alter\s*.+)|(exec\s*.+)|(\s*(all|any|not|and|between|in|like|or|some|contains|containsall|containskey)\s*.+[\=\>\<=\!\~]+.+)|(let\s+.+[\=]\s*.*)|(begin\s*.*\s*end)|(\s*[\/\*]+\s*.*\s*[\*\/]+)|(\s*(\-\-)\s*.*\s+)|(\s*(contains|containsall|containskey)\s+.*)))(\s*[\;]\s*)*)+)/i;
 
+// En regex för att kolla om en sträng innehåller en ny rad
 const newLineRegex = /\n/;
 
+// En regex för att hitta vem som har blivit citerad
 const userRegex = /(?<=["”“].*["”“] -).*?(?=\n|,| om| till| medan| som|$)/;
 
 const db = mysql.createConnection({
@@ -128,6 +145,7 @@ app.use(express.urlencoded({ extended: 'false' }));
 app.use(express.json());
 app.use(express.static('public'));
 
+// Skapar en transportör för att skicka epost
 const transporter = nodemailer.createTransport({
   service: process.env.EMAIL_SERVICE,
   auth: {
@@ -143,6 +161,7 @@ db.connect(async (err) => {
     console.log('%cAnsluten till MySQL', css.success);
 
     // Jag använder en annan repository för att spara databasen. Detta kan leda till en error angående tablespaces. Denna kod löser problemet.
+    // Tar fram alla tabeller i databasen
     const tables = await new Promise((resolve, reject) => {
       db.query('SHOW TABLES', (err, result) => {
         if (err) {
@@ -157,6 +176,7 @@ db.connect(async (err) => {
     tables
       .map((table) => table.Tables_in_regeringen)
       .forEach((table) => {
+        // Ger varje tabell en tablespace om den inte redan har en
         const promise = new Promise((resolve, reject) => {
           db.query(`ALTER TABLE ${table} IMPORT TABLESPACE`, (err, result) => {
             if (err && err.code === 'ER_TABLESPACE_EXISTS') {
@@ -191,6 +211,7 @@ app.get('/account', (req, res) => {
 });
 
 app.get('/citat', async (req, res) => {
+  // Hämtar alla citat från databasen
   const quotes = await new Promise((resolve, reject) => {
     db.query('SELECT * FROM citat', (err, result) => {
       if (err) {
@@ -202,6 +223,8 @@ app.get('/citat', async (req, res) => {
     console.error(`%c${err}`, css.error);
     return res.status(500).json({ message: 'Server error' });
   });
+
+  // Hämtar alla röster från databasen
   const userVotes = await new Promise((resolve, reject) => {
     db.query(
       'SELECT * FROM uservotes WHERE userID = ?',
@@ -217,6 +240,8 @@ app.get('/citat', async (req, res) => {
     console.error(`%c${err}`, css.error);
     return res.status(500).json({ message: 'Server error' });
   });
+
+  // Hämtar alla citerade personer från citaten
   const quoted = quotes.flatMap((message) => {
     const individuals = [];
     const lines = message.quote.split(newLineRegex);
@@ -230,6 +255,8 @@ app.get('/citat', async (req, res) => {
     });
     return individuals;
   });
+
+  // Räknar antalet gånger varje person har blivit citerad
   const quotedCount = Object.fromEntries(
     Object.entries(
       quoted.reduce((acc, user) => {
@@ -238,6 +265,8 @@ app.get('/citat', async (req, res) => {
       }, {})
     ).sort(([, a], [, b]) => b - a)
   );
+
+  // Räknar antalet citat varje person har skrivit
   const quotesPerson = quotes.map((quote) => quote.discordUsername);
   const messageCount = Object.fromEntries(
     Object.entries(
@@ -247,16 +276,22 @@ app.get('/citat', async (req, res) => {
       }, {})
     ).sort(([, a], [, b]) => b - a)
   );
+
+  // Gör om objekten till arrayer av objekt
   const messageCountArray = Object.entries(messageCount).map(
     ([name, count]) => ({
       name,
       count,
     })
   );
+
+  // Görom objekten till arrayer av objekt
   const quotedCountArray = Object.entries(quotedCount).map(([name, count]) => ({
     name,
     count,
   }));
+
+  // Skickar sidan och datan till klienten
   res.render('citat', {
     citat: quotes,
     votes: userVotes,
@@ -268,6 +303,7 @@ app.get('/citat', async (req, res) => {
 });
 
 app.get('/screenshots', async (req, res) => {
+  // Hämtar alla skärmbilder från databasen
   const screenshots = await new Promise((resolve, reject) => {
     db.query('SELECT * FROM screenshots', (err, result) => {
       if (err) {
@@ -279,6 +315,8 @@ app.get('/screenshots', async (req, res) => {
     console.error(`%c${err}`, css.error);
     return res.status(500).json({ message: 'Server error' });
   });
+
+  // Skickar sidan och datan till klienten
   res.render('screenshots', {
     screenshots: screenshots,
     user: req.session,
@@ -287,6 +325,7 @@ app.get('/screenshots', async (req, res) => {
 });
 
 app.get('/activity', async (req, res) => {
+  // Tar fram aktivitets-statistik från databasen
   const activities = await new Promise((resolve, reject) => {
     db.query('SELECT * FROM activities ORDER BY time DESC ', (err, result) => {
       if (err) {
@@ -298,6 +337,8 @@ app.get('/activity', async (req, res) => {
     console.error(`%c${err}`, css.error);
     return res.status(500).json({ message: 'Server error' });
   });
+
+  // Gör om tiden från millisekunder till timmar, minuter och sekunder
   const mappedActivities = activities.map((activity) => {
     const hours = Math.floor(activity.time / 3600000);
     const minutes = Math.floor((activity.time % 3600000) / 60000);
@@ -307,6 +348,8 @@ app.get('/activity', async (req, res) => {
       time: `${hours}h ${minutes}m ${seconds}s`,
     };
   });
+
+  // Skickar sidan och datan till klienten
   res.render('activity', {
     activities: mappedActivities,
     user: req.session,
@@ -315,6 +358,7 @@ app.get('/activity', async (req, res) => {
 });
 
 app.get('/spotify', async (req, res) => {
+  // Hämtar alla låtar från databasen
   const spotify = await new Promise((resolve, reject) => {
     db.query('SELECT * FROM spotify ORDER BY time DESC ', (err, result) => {
       if (err) {
@@ -330,6 +374,7 @@ app.get('/spotify', async (req, res) => {
     .then(async (spotify) => {
       return await Promise.all(
         spotify.map(async (song) => {
+          // Hämtar alla artistID för varje låt
           const artistIDs = await new Promise((resolve, reject) => {
             db.query(
               'SELECT artistID FROM artistsongs WHERE songID = ?',
@@ -345,6 +390,8 @@ app.get('/spotify', async (req, res) => {
             console.error(`%c${err}`, css.error);
             return res.status(500).json({ message: 'Server error' });
           });
+
+          // Hämtar alla artister för varje låt
           const artists = await new Promise((resolve, reject) => {
             db.query(
               'SELECT * FROM artists WHERE FIND_IN_SET(artistID, ?)',
@@ -360,6 +407,8 @@ app.get('/spotify', async (req, res) => {
             console.error(`%c${err}`, css.error);
             return res.status(500).json({ message: 'Server error' });
           });
+
+          // Räknar om tiden från millisekunder till timmar, minuter och sekunder
           const hours = Math.floor(song.time / 3600000);
           const minutes = Math.floor((song.time % 3600000) / 60000);
           const seconds = Math.floor((song.time % 60000) / 1000);
@@ -371,6 +420,8 @@ app.get('/spotify', async (req, res) => {
         })
       );
     });
+
+  // Hämtar alla artister från databasen
   const artists = await new Promise((resolve, reject) => {
     db.query('SELECT artistName, time FROM artists', (err, result) => {
       if (err) {
@@ -387,6 +438,7 @@ app.get('/spotify', async (req, res) => {
       return artists
         .sort((a, b) => b.time - a.time)
         .map((artist) => {
+          // Räknar om tiden från millisekunder till timmar, minuter och sekunder
           const hours = Math.floor(artist.time / 3600000);
           const minutes = Math.floor((artist.time % 3600000) / 60000);
           const seconds = Math.floor((artist.time % 60000) / 1000);
@@ -396,6 +448,8 @@ app.get('/spotify', async (req, res) => {
           };
         });
     });
+
+  // Skickar sidan och datan till klienten
   res.render('spotify', {
     spotify: spotify,
     artists: artists,
@@ -409,6 +463,8 @@ app.get('/verify', async (req, res) => {
   if (!token) {
     return res.status(500).json({ message: 'Token saknas' });
   }
+
+  // Sätter att användarens epostadress är verifierad
   await new Promise((resolve, reject) => {
     db.query(
       'UPDATE users SET email_verified = 1 WHERE token = ?',
@@ -424,22 +480,32 @@ app.get('/verify', async (req, res) => {
     console.error(`%c${err}`, css.error);
     return res.status(500).json({ message: 'Server error' });
   });
+
+  // Skickar användaren till startsidan
   res.redirect('http://localhost:4000');
 });
 
-app.get('/delete', (req, res) => {
+app.get('/delete', async (req, res) => {
   const { token } = req.query;
   if (!token) {
     return res.status(500).json({ message: 'Token saknas' });
   }
-  db.query('DELETE FROM users WHERE token = ?', [token], (err, result) => {
-    if (err) {
-      console.error(`%c${err}`, css.error);
-      return res.status(500).json({ message: 'Server error' });
-    }
-    console.log(`%cUser deleted: ${result}`, css.information);
-    return res.status(200).json({ message: 'Konto raderat' });
+
+  // Raderar användaren från databasen
+  await new Promise((resolve, reject) => {
+    db.query('DELETE FROM users WHERE token = ?', [token], (err, result) => {
+      if (err) {
+        reject(err);
+      }
+      resolve();
+    });
+  }).catch((err) => {
+    console.error(`%c${err}`, css.error);
+    return res.status(500).json({ message: 'Server error' });
   });
+
+  // Skickar att användaren har raderats
+  return res.status(200).json({ message: 'Konto raderat' });
 });
 
 app.get('/404', (req, res) => {
@@ -447,16 +513,20 @@ app.get('/404', (req, res) => {
 });
 
 app.get('/auth/userdata', (req, res) => {
+  // Skickar användaruppgifterna till klienten
   res.json(req.session);
 });
 
 app.get('*', (req, res) => {
+  // Om sidan inte finns skickas användaren till 404-sidan
   res.redirect('http://localhost:4000/404');
 });
 
 app.post('/auth/register', async (req, res) => {
   console.log(req.body);
   const { name, email, password, password_confirm } = req.body;
+
+  // Hämtar alla användare från databasen
   const result = await new Promise((resolve, reject) => {
     db.query('SELECT name, email, email_verified FROM users', (err, result) => {
       if (err) {
@@ -468,6 +538,8 @@ app.post('/auth/register', async (req, res) => {
     console.error(`%c${err}`, css.error);
     return res.status(500).json({ message: 'Server error' });
   });
+
+  // Gör om användaruppgifterna till arrayer
   const name_array = result.map((user) => user.name);
   const email_array = result.map((user) => user.email);
   const email_verified_array = result.map((user) => user.email_verified);
@@ -485,6 +557,8 @@ app.post('/auth/register', async (req, res) => {
     if (email_verified_array[email_index] === 1) {
       return res.status(400).json({ message: 'Epostadressen är upptagen' });
     }
+
+    // Skapar ett mail till användaren för att bekräfta epostadressen
     const token = crypto.randomBytes(32).toString('hex');
     const mailOptions = {
       from: process.env.EMAIL,
@@ -492,6 +566,8 @@ app.post('/auth/register', async (req, res) => {
       subject: 'Bekräftelse av epostadress',
       text: `Klicka på länken för att bekräfta din epostadress: http://localhost:4000/verify?token=${token}`,
     };
+
+    // Skickar mailet
     await new Promise((resolve, reject) => {
       transporter.sendMail(mailOptions, (err, info) => {
         if (err) {
@@ -504,6 +580,8 @@ app.post('/auth/register', async (req, res) => {
       console.error(`%c${err}`, css.error);
       return res.status(500).send('Server error');
     });
+
+    // Uppdaterar användarens token
     await new Promise((resolve, reject) => {
       db.query(
         'UPDATE users SET token = ? WHERE email = ?',
@@ -520,6 +598,8 @@ app.post('/auth/register', async (req, res) => {
       console.error(`%c${err}`, css.error);
       return res.status(500).json({ message: 'Server error' });
     });
+
+    // Skickar att användaren måste bekräfta epostadressen
     return res.status(400).json({
       message:
         'Epostadressen är upptagen, bekräfta den eller radera kontot om du inte registrerade det',
@@ -542,6 +622,8 @@ app.post('/auth/register', async (req, res) => {
         'Lösenordet måste innehålla mellan 8 och 35 tecken, varav minst en siffra, en stor bokstav och en liten bokstav',
     });
   }
+
+  // Skapar ett salt för lösenordet
   const salt = await new Promise((resolve, reject) => {
     bcrypt.genSalt(10, (err, salt) => {
       if (err) {
@@ -553,6 +635,8 @@ app.post('/auth/register', async (req, res) => {
     console.error(`%c${err}`, css.error);
     return res.status(500).json({ message: 'Server error' });
   });
+
+  // Hashar lösenordet
   const hashedPassword = await new Promise((resolve, reject) => {
     bcrypt.hash(password, salt, (err, hashedPassword) => {
       if (err) {
@@ -564,7 +648,11 @@ app.post('/auth/register', async (req, res) => {
     console.error(`%c${err}`, css.error);
     return res.status(500).json({ message: 'Server error' });
   });
+
+  // Skapar en token för användaren
   const token = crypto.randomBytes(32).toString('hex');
+
+  // Lägger till användaren i databasen
   await new Promise((resolve, reject) => {
     db.query(
       'INSERT INTO users SET?',
@@ -587,12 +675,16 @@ app.post('/auth/register', async (req, res) => {
     console.error(`%c${err}`, css.error);
     return res.status(500).json({ message: 'Server error' });
   });
+
+  // Skapar ett mail till användaren för att bekräfta epostadressen
   const mailOptions = {
     from: process.env.EMAIL,
     to: email,
     subject: 'Bekräftelse av epostadress',
     text: `Klicka på länken för att bekräfta din epostadress: http://localhost:4000/verify?token=${token}`,
   };
+
+  // Skickar mailet
   await new Promise((resolve, reject) => {
     transporter.sendMail(mailOptions, (err, info) => {
       if (err) {
@@ -605,6 +697,8 @@ app.post('/auth/register', async (req, res) => {
     console.error(`%c${err}`, css.error);
     return res.status(500).send('Server error');
   });
+
+  // Skickar att användaren måste bekräfta epostadressen
   return res.status(200).json({
     message:
       'Användare registrerad, bekräfta din epostadress för att bevara ditt konto',
@@ -619,6 +713,8 @@ app.post('/auth/login', async (req, res) => {
   if (sqlInjectionRegex.test(username)) {
     return res.status(400).json({ message: 'Ogiltiga tecken' });
   }
+
+  // Hämtar alla användare från databasen
   const users = await new Promise((resolve, reject) => {
     db.query(
       'SELECT name, email, password FROM users',
@@ -634,36 +730,50 @@ app.post('/auth/login', async (req, res) => {
     console.error(`%c${err}`, css.error);
     return res.status(500).json({ message: 'Server error' });
   });
+
+  // Gör om användaruppgifterna till arrayer
   const name_array_login = users.map((user) => user.name);
   const password_array_login = users.map((user) => user.password);
   const email_array_login = users.map((user) => user.email);
+
+  // Kontrollerar om användaren finns
   if (emailRegex.test(username) && !email_array_login.includes(username)) {
     return res.status(400).json({ message: 'Fel inloggningsuppgifter' });
   }
   if (!emailRegex.test(username) && !name_array_login.includes(username)) {
     return res.status(400).json({ message: 'Fel inloggningsuppgifter' });
   }
+
+  // Tar fram användarens index
   let index;
   if (emailRegex.test(username)) {
     index = email_array_login.indexOf(username);
   } else {
     index = name_array_login.indexOf(username);
   }
+
+  // Kontrollerar om lösenordet stämmer
   const hashedPassword = password_array_login[index];
   const passwordMatch = await bcrypt.compare(password, hashedPassword);
   if (!passwordMatch) {
     return res.status(400).json({ message: 'Fel inloggningsuppgifter' });
   }
+
+  // Sparar användaruppgifterna i sessionen
   req.session.user = name_array_login[index];
   req.session.email = email_array_login[index];
   req.session.userID = index;
   req.session.loggedIn = true;
+
+  // Sparar sessionen
   req.session.save((err) => {
     if (err) {
       console.error(`%c${err}`, css.error);
       return res.status(500).json({ message: 'Server error' });
     }
   });
+
+  // Hämtar användarens Discord-uppgifter
   const discordUsers = await new Promise((resolve, reject) => {
     db.query(
       'SELECT * FROM discordusers WHERE userID = ?',
@@ -679,6 +789,8 @@ app.post('/auth/login', async (req, res) => {
     console.error(`%c${err}`, css.error);
     return res.status(500).json({ message: 'Server error' });
   });
+
+  // Skickar användaruppgifterna till klienten
   let data;
   if (discordUsers.length > 0) {
     req.session.linkedDiscord = true;
@@ -705,10 +817,21 @@ app.post('/auth/login', async (req, res) => {
     };
   }
   console.log(`%cInloggad: ${username}`, css.information);
+
+  // Skickar att användaren är inloggad
   return res.status(200).json({ message: 'Inloggad', data: data });
 });
 
 app.post('/auth/logout', (req, res) => {
+  // Loggar ut användaren
+  req.session.destroy((err) => {
+    if (err) {
+      console.error(`%c${err}`, css.error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+  });
+
+  // Skickar att användaren är utloggad
   return res.status(200).json({ message: 'Utloggad' });
 });
 
@@ -717,11 +840,15 @@ app.post('/auth/forgot', (req, res) => {
   if (!email) {
     return res.status(400).json({ message: 'Fyll i epostadress' });
   }
+
+  // Hämtar alla användare från databasen
   db.query('SELECT email, email_verified FROM users', (err, result) => {
     if (err) {
       console.error(`%c${err}`, css.error);
       return res.status(500).json({ message: 'Server error' });
     }
+
+    // Gör om användaruppgifterna till arrayer
     const email_array_forgot = result.map((user) => user.email);
     const email_verified_array_forgot = result.map(
       (user) => user.email_verified
@@ -735,19 +862,27 @@ app.post('/auth/forgot', (req, res) => {
         .status(400)
         .json({ message: 'Epostadressen är inte verifierad' });
     }
+
+    // Skapar en token för användaren
     const token = crypto.randomBytes(32).toString('hex');
+
+    // Skapar ett mail till användaren för att återställa lösenordet
     const mailOptions = {
       from: process.env.EMAIL,
       to: email,
       subject: 'Återställning av lösenord',
       text: `Klicka på länken för att återställa ditt lösenord: http://localhost:4000/reset?token=${token}`,
     };
+
+    // Skickar mailet
     transporter.sendMail(mailOptions, (err, info) => {
       if (err) {
         console.error(`%c${err}`, css.error);
         return res.status(500).send('Server error');
       }
       console.log(`%cEmail sent: ${info.response}`, css.information);
+
+      // Uppdaterar användarens token
       db.query(
         'UPDATE users SET token = ? WHERE email = ?',
         [token, email],
@@ -760,12 +895,16 @@ app.post('/auth/forgot', (req, res) => {
         }
       );
     });
+
+    // Skickar att ett mail har skickats
     return res.status(200).json({ message: 'Ett mail har skickats' });
   });
 });
 
 app.post('/auth/discord', async (req, res) => {
   const { code } = req.body;
+
+  // Hämtar användarens Discord-uppgifter
   const tokenResponseData = await request(
     'https://discord.com/api/oauth2/token',
     {
@@ -783,28 +922,34 @@ app.post('/auth/discord', async (req, res) => {
       },
     }
   );
+
+  // Gör om användarens uppgifter till JSON
   const oauthData = await tokenResponseData.body.json();
   const userResult = await request('https://discord.com/api/users/@me', {
     headers: {
       authorization: `${oauthData.token_type} ${oauthData.access_token}`,
     },
   });
+
+  // Sparar användarens Discord-uppgifter i sessionen
   const discordUser = await userResult.body.json();
-  console.log(discordUser);
   const username = discordUser.username;
   const displayname = discordUser.global_name;
   const avatar = `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`;
   req.session.username = username;
   req.session.displayname = displayname;
   req.session.avatar = avatar;
-
   req.session.linkedDiscord = true;
+
+  // Sparar sessionen
   req.session.save((err) => {
     if (err) {
       console.error(`%c${err}`, css.error);
       return res.status(500).json({ message: 'Server error' });
     }
   });
+
+  // Lägger till användaren i databasen
   await new Promise((resolve, reject) => {
     db.query(
       'INSERT INTO discordusers SET?',
@@ -832,6 +977,8 @@ app.post('/auth/discord', async (req, res) => {
     displayname: displayname,
     avatar: avatar,
   };
+
+  // Skickar att användaren är inloggad med Discord
   return res.status(200).json({ message: 'Inloggad med Discord', data: data });
 });
 
@@ -841,9 +988,13 @@ app.post('/auth/vote', async (req, res) => {
     return res.status(400).json({ message: 'Ogiltig förfrågan' });
   }
   let uservote;
+
+  // Röstar på citatet
   switch (type) {
     case 'upvote':
       console.log('%cUpvote', css.information);
+
+      // Hämtar användarens röster från databasen
       uservote = await new Promise((resolve, reject) => {
         db.query(
           'SELECT * FROM uservotes WHERE userID = ? AND quoteID = ?',
@@ -859,8 +1010,9 @@ app.post('/auth/vote', async (req, res) => {
         console.error(`%c${err}`, css.error);
         return res.status(500).json({ message: 'Server error' });
       });
-      console.log(uservote);
+
       if (uservote.length > 0 && uservote[0].type === 'downvote') {
+        // Röstar på citatet
         await new Promise((resolve, reject) => {
           db.query(
             'UPDATE citat SET upvotes = upvotes + 1, downvotes = downvotes - 1 WHERE citatID = ?',
@@ -876,6 +1028,8 @@ app.post('/auth/vote', async (req, res) => {
           console.error(`%c${err}`, css.error);
           return res.status(500).json({ message: 'Server error' });
         });
+
+        // Uppdaterar användarens röst
         await new Promise((resolve, reject) => {
           db.query(
             'UPDATE uservotes SET type = ? WHERE userID = ? AND quoteID = ?',
@@ -895,6 +1049,7 @@ app.post('/auth/vote', async (req, res) => {
           .status(200)
           .json({ message: 'Röstat', previous: 'downvote' });
       } else if (uservote.length > 0 && uservote[0].type === 'upvote') {
+        // Röstar på citatet
         await new Promise((resolve, reject) => {
           db.query(
             'UPDATE citat SET upvotes = upvotes - 1 WHERE citatID = ?',
@@ -910,6 +1065,7 @@ app.post('/auth/vote', async (req, res) => {
           console.error(`%c${err}`, css.error);
           return res.status(500).json({ message: 'Server error' });
         });
+        // Tar bort användarens röst
         await new Promise((resolve, reject) => {
           db.query(
             'DELETE FROM uservotes WHERE userID = ? AND quoteID = ?',
@@ -927,6 +1083,7 @@ app.post('/auth/vote', async (req, res) => {
         });
         return res.status(200).json({ message: 'Röstat', previous: 'upvote' });
       } else if (uservote.length === 0) {
+        // Röstar på citatet
         await new Promise((resolve, reject) => {
           db.query(
             'UPDATE citat SET upvotes = upvotes + 1 WHERE citatID = ?',
@@ -942,6 +1099,8 @@ app.post('/auth/vote', async (req, res) => {
           console.error(`%c${err}`, css.error);
           return res.status(500).json({ message: 'Server error' });
         });
+
+        // Lägger till användarens röst
         await new Promise((resolve, reject) => {
           db.query(
             'INSERT INTO uservotes set? ',
@@ -964,6 +1123,8 @@ app.post('/auth/vote', async (req, res) => {
       }
     case 'downvote':
       console.log('%cDownvote', css.information);
+
+      // Hämtar användarens röster från databasen
       uservote = await new Promise((resolve, reject) => {
         db.query(
           'SELECT * FROM uservotes WHERE userID = ? AND quoteID = ?',
@@ -981,6 +1142,7 @@ app.post('/auth/vote', async (req, res) => {
       });
       console.log(uservote);
       if (uservote.length > 0 && uservote[0].type === 'upvote') {
+        // Röstar på citatet
         await new Promise((resolve, reject) => {
           db.query(
             'UPDATE citat SET upvotes = upvotes - 1, downvotes = downvotes + 1 WHERE citatID = ?',
@@ -996,6 +1158,8 @@ app.post('/auth/vote', async (req, res) => {
           console.error(`%c${err}`, css.error);
           return res.status(500).json({ message: 'Server error' });
         });
+
+        // Uppdaterar användarens röst
         await new Promise((resolve, reject) => {
           db.query(
             'UPDATE uservotes SET type = ? WHERE userID = ? AND quoteID = ?',
@@ -1013,6 +1177,8 @@ app.post('/auth/vote', async (req, res) => {
         });
         return res.status(200).json({ message: 'Röstat', previous: 'upvote' });
       } else if (uservote.length > 0 && uservote[0].type === 'downvote') {
+
+        // Röstar på citatet
         await new Promise((resolve, reject) => {
           db.query(
             'UPDATE citat SET downvotes = downvotes - 1 WHERE citatID = ?',
@@ -1028,6 +1194,8 @@ app.post('/auth/vote', async (req, res) => {
           console.error(`%c${err}`, css.error);
           return res.status(500).json({ message: 'Server error' });
         });
+
+        // Tar bort användarens röst
         await new Promise((resolve, reject) => {
           db.query(
             'DELETE FROM uservotes WHERE userID = ? AND quoteID = ?',
@@ -1047,6 +1215,8 @@ app.post('/auth/vote', async (req, res) => {
           .status(200)
           .json({ message: 'Röstat', previous: 'downvote' });
       } else if (uservote.length === 0) {
+
+        // Röstar på citatet
         await new Promise((resolve, reject) => {
           db.query(
             'UPDATE citat SET downvotes = downvotes + 1 WHERE citatID = ?',
@@ -1062,6 +1232,8 @@ app.post('/auth/vote', async (req, res) => {
           console.error(`%c${err}`, css.error);
           return res.status(500).json({ message: 'Server error' });
         });
+
+        // Lägger till användarens röst
         await new Promise((resolve, reject) => {
           db.query(
             'INSERT INTO uservotes set? ',
@@ -1083,23 +1255,34 @@ app.post('/auth/vote', async (req, res) => {
         return res.status(400).json({ message: 'Ogiltig förfrågan' });
       }
     default:
+
+      // Om förfrågan är okänd
       console.log('%cUnknown message', css.warning);
       return res.status(400).json({ message: 'Ogiltig förfrågan' });
   }
 });
 
+// Loggar in som discordboten
 client.login(process.env.DISCORD_TOKEN);
 
+
+// När botten är redo
 client.on(Events.ClientReady, async (readyClient) => {
   console.log(`%cBotten är online som ${readyClient.user.tag}`, css.success);
+
+  // Sätter status
   client.user.setPresence({
     activities: [
       { name: `Samlar data om regeringen`, type: ActivityType.Custom },
     ],
   });
+
+  // Hämtar alla citat och sparar i databasen
   const quotes = await fetchAllMessages(
     process.env.DISCORD_CHANNEL_ID_CITAT_DEPARTEMENTET
   );
+
+  // Filtrera ut systemmeddelanden (såsom threads och pins) och felaktiga citat
   const filteredQuotes = quotes
     .filter(
       (message) =>
@@ -1113,6 +1296,8 @@ client.on(Events.ClientReady, async (readyClient) => {
       }
       return matched !== null;
     });
+  
+  // Hämtar alla citat från databasen
   const dbQuotes = await new Promise((resolve, reject) => {
     db.query('SELECT * FROM citat', (err, result) => {
       if (err) {
@@ -1125,12 +1310,16 @@ client.on(Events.ClientReady, async (readyClient) => {
     return;
   });
   const dbQuotesArray = dbQuotes.map((quote) => quote.quote);
+
+  // Kollar vilka citat som är nya
   const newQuotes = filteredQuotes.filter(
     (message) => !dbQuotesArray.includes(message.content)
   );
   let newQuotesCount = 0;
   const quotePromises = [];
   newQuotes.forEach((message) => {
+
+    // Lägger till citatet i databasen
     const promise = new Promise((resolve, reject) => {
       db.query(
         'INSERT INTO citat SET ?',
@@ -1154,15 +1343,21 @@ client.on(Events.ClientReady, async (readyClient) => {
     });
     quotePromises.push(promise);
   });
+
+  // Väntar på att alla citat ska läggas till
   Promise.all(quotePromises).then(() => {
     console.log(
       `%c${newQuotesCount} av ${newQuotes.length} nya citat inlagda`,
       css.success
     );
   });
+
+  // Hämtar alla skärmbilder
   const screenshots = await fetchAllMessages(
     process.env.DISCORD_CHANNEL_ID_SCREENSHOTS
   );
+
+  // Rensar skärmbildstabellen
   await new Promise((resolve, reject) => {
     db.query('TRUNCATE TABLE screenshots', (err, result) => {
       if (err) {
@@ -1189,6 +1384,8 @@ client.on(Events.ClientReady, async (readyClient) => {
     })
     .flat()
     .forEach((screenshot) => {
+
+      // Lägger till skärmbilden i databasen
       const promise = new Promise((resolve, reject) => {
         db.query('INSERT INTO screenshots SET ?', screenshot, (err, result) => {
           if (err) {
@@ -1201,12 +1398,17 @@ client.on(Events.ClientReady, async (readyClient) => {
       });
       screenshotPromises.push(promise);
     });
+  
+  // Väntar på att alla skärmbilder ska läggas till
   Promise.all(screenshotPromises).then(() => {
     console.log('%cScreenshots återställda', css.success);
   });
 });
 
+// När botten tar emot ett meddelande
 client.on(Events.MessageCreate, async (message) => {
+
+  // Kollar vilken kanal meddelandet skickades i
   switch (message.channelId) {
     case process.env.DISCORD_CHANNEL_ID_CITAT_DEPARTEMENTET:
       if (message.system) {
@@ -1216,6 +1418,8 @@ client.on(Events.MessageCreate, async (message) => {
         console.log(`%c${message.content}`, css.error);
         return;
       }
+
+      // Lägger till citatet i databasen
       await new Promise((resolve, reject) => {
         db.query(
           'INSERT INTO citat SET ?',
@@ -1237,6 +1441,8 @@ client.on(Events.MessageCreate, async (message) => {
         return;
       });
       console.log(`%cCitat inlagt: ${message.content}`, css.information);
+
+      // Skickar citatet till alla anslutna klienter på citatsidan
       connections.forEach((pageId, ws) => {
         if (pageId === 'citat' && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify(message));
@@ -1245,6 +1451,8 @@ client.on(Events.MessageCreate, async (message) => {
       return;
     case process.env.DISCORD_CHANNEL_ID_SCREENSHOTS:
       const promises = [];
+
+      // Lägger till skärmbilderna i databasen
       message.attachments.forEach((attachment) => {
         const promise = new Promise((resolve, reject) => {
           db.query(
@@ -1267,6 +1475,8 @@ client.on(Events.MessageCreate, async (message) => {
         });
         promises.push(promise);
       });
+
+      // Väntar på att alla skärmbilder ska läggas till
       Promise.all(promises).then(() => {
         console.log('%cScreenshots inlagda', css.information);
       });
@@ -1276,8 +1486,11 @@ client.on(Events.MessageCreate, async (message) => {
   }
 });
 
+// När en användare byter aktivitet
 client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
   if (oldActivities && oldActivities.activities) {
+
+    // Omformaterar aktiviteterna och loopar igenom dem
     oldActivities.activities
       .filter(
         (activity) =>
@@ -1291,6 +1504,8 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
           new Date().getTime() - activity.createdTimestamp,
           0
         );
+
+        // Lägger till aktiviteten i databasen
         await new Promise((resolve, reject) => {
           db.query(
             'INSERT INTO activities (name, time) VALUES (?, ?) ON DUPLICATE KEY UPDATE time = time + VALUES(time)',
@@ -1307,6 +1522,8 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
           return null;
         });
         if (activity.name === 'Spotify') {
+
+          // Lägger till Spotify-aktiviteten i databasen
           await new Promise((resolve, reject) => {
             db.query(
               'INSERT INTO spotify (song, mainArtist, time) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE time = time + VALUES(time)',
@@ -1322,6 +1539,8 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
             console.error(`%c${err}`, css.error);
             return null;
           });
+
+          // Lägger till artisterna i databasen
           await Promise.all(
             activity.state.split(';').map(async (artist) => {
               return new Promise((resolve, reject) => {
@@ -1341,6 +1560,8 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
               });
             })
           );
+
+          // Tar fram artisternas och låtens ID
           const songID = await new Promise((resolve, reject) => {
             db.query(
               'SELECT songID FROM spotify WHERE song = ? AND mainArtist = ?',
@@ -1375,6 +1596,8 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
               });
             })
           );
+
+          // Lägger till artisterna och låten i artistlåt-tabellen
           const songIDValue = songID[0].songID;
           const artistIDsValues = artistIDs.map((artist) => artist[0].artistID);
           artistIDsValues.forEach(async (artistID) => {
@@ -1401,6 +1624,7 @@ client.on(Events.PresenceUpdate, async (oldActivities, newActivities) => {
 
 const port = 4000;
 
+// Startar servern
 app.listen(port, () => {
   console.log(`%cServern körs, besök http://localhost:${port}`, css.success);
 });
