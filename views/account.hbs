@@ -47,7 +47,7 @@
     </header>
 
     <main
-      class='d-flex flex-column justify-content-center align-items-center text-white'
+      class='d-flex flex-column justify-content-center align-items-center text-white my-4'
     >
       <section
         class='text-center w-25 border border-success rounded p-3 bg-dark bg-gradient text-white card bg-dark bg-gradient border border-success rounded p-3 w-25'
@@ -62,8 +62,18 @@
           {{else}}
             <img src='/images/default-avatar.png' alt='' class='w-50' />
           {{/if}}
-          <a class='alert alert-primary w-75' href='/logout'>Logga ut</a>
-          <a class='alert alert-danger w-75' href='/delete'>Ta bort konto</a>
+          {{#if user.loggedIn}}
+            <p class='w-75 my-2'>Inloggad som {{user.user}}</p>
+          {{else}}
+            <p class='w-75 my-2'>Inte inloggad</p>
+          {{/if}}
+          {{#if user.linkedDiscord}}
+            <p class='w-75 my-2'>Discord: {{user.username}}</p>
+          {{else}}
+            <p class='w-75 my-2'>Inte länkad till Discord</p>
+          {{/if}}
+          <a class='alert alert-primary w-75 my-2' href='/logout'>Logga ut</a>
+          <a class='alert alert-danger w-75 my-2' href='/delete'>Ta bort konto</a>
         </section>
         <footer class='card-footer alert alert-danger d-none' id='response'>
 
