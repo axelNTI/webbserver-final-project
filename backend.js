@@ -1504,11 +1504,11 @@ client.on(Events.MessageCreate, async (message) => {
         return;
       });
       console.log(`%cCitat inlagt: ${message.content}`, css.information);
-      
-        const data = {
-          quote: message.content,
-          citatID: citatID,
-        }
+
+      const data = {
+        quote: message.content,
+        citatID: citatID,
+      };
       // Skickar citatet till alla anslutna klienter på citatsidan
       connections.forEach((pageId, ws) => {
         if (pageId === 'citat' && ws.readyState === WebSocket.OPEN) {
@@ -1549,9 +1549,9 @@ client.on(Events.MessageCreate, async (message) => {
       });
       message.attachments.forEach((attachment) => {
         connections.forEach((pageId, ws) => {
-        if (pageId === 'screenshots' && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify(attachment.url));
-        }
+          if (pageId === 'screenshots' && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(attachment.url));
+          }
         });
       });
       return;

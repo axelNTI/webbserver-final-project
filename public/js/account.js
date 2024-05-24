@@ -6,7 +6,7 @@ $(function () {
 
   // Skapar en WebSocket-anslutning till servern
   const ws = new WebSocket('ws://localhost:8080?=account');
-  console.log(urlParams)
+  console.log(urlParams);
   // Skriver ut meddelanden från servern i konsolen
   if (urlParams.has('message')) {
     const code = urlParams.get('message');

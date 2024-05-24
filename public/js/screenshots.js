@@ -10,7 +10,7 @@ $(function () {
     // Lägger till en bild i listan
     $('ul').append(
       `<li>` +
-        `<img src='${data}' class='my-2 mx-3' />` +
+        `<img src='${data}' alt='Skärmbild från Minecraft' class='my-2 mx-3' />` +
         `</li>` +
         `<hr />`
     );

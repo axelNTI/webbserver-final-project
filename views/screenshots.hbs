@@ -72,9 +72,7 @@
           id='login-button'
           class='btn btn-link link-offset-2 link-underline-opacity-25 link-underline-opacity-75-hover link-info'
         >
-          <p class='d-inline'>
-            Logga in
-          </p>
+          Logga in
         </button>
         <a
           href='/register'
@@ -117,7 +115,11 @@
         <hr />
         {{#each screenshots}}
           <li>
-            <img src='{{this.url}}' class='my-2 mx-3' />
+            <img
+              src='{{this.url}}'
+              alt='Skärmbild från Minecraft'
+              class='my-2 mx-3'
+            />
           </li>
           <hr />
         {{/each}}
